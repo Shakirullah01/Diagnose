@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}{{ survey_title }} | Опросник{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-9">
+        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-3">
+          <div>
+            <h1 class="h3 fw-semibold mb-1">Опросник: {{ survey_title }}</h1>
+            <div class="text-muted small">
+              Вопросы будут загружаться из базы данных (без хардкода).
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary rounded-4" href="{% url 'home' %}">На главную</a>
+          </div>
+        </div>
+
+        {% if survey_slug == 'ezhs' %}
+          <div class="card rounded-4 border-0 shadow-sm mb-3">
+            <div class="card-body">
+              <h2 class="h5 fw-semibold mb-2">Возраст ребенка</h2>
+              <p class="text-muted small mb-3">
+                Укажите возраст ребенка в месяцах (от 0 до 36), чтобы мы показали только подходящие вопросы.
+              </p>
+              <form method="get" class="row g-2 align-items-end">
+                <div class="col-8 col-sm-6 col-md-4">
+                  <label for="age" class="form-label">Возраст, месяцев</label>
+                  <input
+                    type="number"
+                    class="form-control rounded-4"
+                    id="age"
+                    name="age"
+                    min="0"
+                    max="36"
+                    value="{{ age_months|default_if_none:'' }}"
+                    required
+                  >
+                </div>
+                <div class="col-auto">
+                  <button type="submit" class="btn btn-primary rounded-4">Показать вопросы</button>
+                </div>
+              </form>
+              {% if age_error %}
+                <div class="text-danger small mt-2">{{ age_error }}</div>
+              {% elif age_months is not None %}
+                <div class="text-muted small mt-2">
+                  Показаны вопросы, соответствующие возрасту {{ age_months }} месяцев.
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+
+        <div class="card rounded-4 border-0 shadow-sm mb-3">
+          <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <div class="fw-semibold">Прогресс</div>
+              <div class="text-muted small">{{ progress_percent }}%</div>
+            </div>
+            <div class="progress rounded-pill" role="progressbar" aria-label="Прогресс" aria-valuenow="{{ progress_percent }}" aria-valuemin="0" aria-valuemax="100" style="height: 10px;">
+              <div class="progress-bar" style="width: {{ progress_percent }}%"></div>
+            </div>
+          </div>
+        </div>
+
+        {% if total_questions %}
+          <div class="d-flex justify-content-between align-items-center mb-3 text-muted small">
+            <div>
+              Вопросы {{ first_index }}–{{ last_index }} из {{ total_questions }}
+            </div>
+            <div>
+              Страница {{ page }} из {{ total_pages }}
+            </div>
+          </div>
+        {% endif %}
+
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="vstack gap-3">
+            {% if not survey_type %}
+              <div class="alert alert-warning rounded-4">
+                Этот опросник (<strong>{{ survey_slug }}</strong>) ещё не создан в базе данных.
+                Создайте <code>SurveyType</code> со slug <code>{{ survey_slug }}</code> и добавьте записи <code>Question</code>.
+              </div>
+            {% endif %}
+
+            {% for question in questions %}
+              <div class="card rounded-4 border-0 shadow-sm">
+                <div class="card-body p-4">
+                  <div class="d-flex gap-2 align-items-start">
+                    <div class="badge text-bg-primary rounded-pill mt-1">
+                      Вопрос {{ first_index|add:forloop.counter0 }}
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold mb-3">{{ question.text }}</div>
+
+                      <div class="vstack gap-2">
+                        {% for option in question.answer_options.all %}
+                          <div class="form-check card-radio rounded-4 p-3">
+                            <input
+                              class="form-check-input"
+                              type="radio"
+                              name="q_{{ question.id }}"
+                              id="q_{{ question.id }}_opt_{{ option.id }}"
+                              value="{{ option.id }}"
+                            >
+                            <label class="form-check-label ms-2" for="q_{{ question.id }}_opt_{{ option.id }}">
+                              {{ option.text }}
+                            </label>
+                          </div>
+                        {% empty %}
+                          <div class="text-muted small">
+                            Для этого вопроса пока нет вариантов ответа.
+                          </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% empty %}
+              <div class="card rounded-4 border-0 shadow-sm">
+                <div class="card-body p-4 p-lg-5">
+                  <div class="fw-semibold mb-1">Пока нет вопросов</div>
+                  <div class="text-muted">
+                    Когда вы добавите вопросы и варианты ответов в базу данных, они появятся здесь автоматически.
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <div class="d-flex flex-column flex-md-row gap-2 justify-content-between mt-4">
+            <a
+              href="{% if page > 1 %}{% url 'survey_page' survey_slug %}?page={{ page|add:-1 }}{% else %}#{% endif %}"
+              class="btn btn-outline-secondary rounded-4 {% if page <= 1 %}disabled{% endif %}"
+            >
+              Назад
+            </a>
+            <div class="d-flex gap-2">
+              <a
+                href="{% if page < total_pages %}{% url 'survey_page' survey_slug %}?page={{ page|add:1 }}{% else %}#{% endif %}"
+                class="btn btn-outline-primary rounded-4 {% if page >= total_pages %}disabled{% endif %}"
+              >
+                Далее
+              </a>
+              <button type="submit" class="btn btn-primary rounded-4" disabled>Завершить</button>
+            </div>
+          </div>
+
+          <div class="text-muted small mt-3">
+            Пока отображается не более 20 вопросов на странице. Логика сохранения ответов и подсчёта результатов будет добавлена позже.
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endblock %}

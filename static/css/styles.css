@@ -1,0 +1,47 @@
+:root{
+  --soft-blue: #2f6fed;
+  --soft-blue-weak: rgba(47,111,237,.08);
+}
+
+.body-font{
+  font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.body-font *{
+  font-family: inherit;
+}
+
+.bg-soft{
+  background: linear-gradient(180deg, var(--soft-blue-weak) 0%, #ffffff 45%);
+}
+
+.card-soft{
+  background: rgba(47,111,237,.06);
+}
+
+.rounded-4{
+  border-radius: 1rem !important;
+}
+
+.card-radio{
+  border: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+}
+
+.card-radio:hover{
+  border-color: rgba(47,111,237,.35);
+  box-shadow: 0 .25rem 1rem rgba(0,0,0,.06);
+}
+
+.object-fit-cover{
+  object-fit: cover;
+}
+
+.brand-mark{
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(47,111,237,.2), rgba(47,111,237,.55));
+  border: 1px solid rgba(47,111,237,.35);
+  box-shadow: 0 .25rem 1rem rgba(0,0,0,.06);
+}

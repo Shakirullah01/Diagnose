@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Главная | Система ранней диагностики развития детей{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <div class="row align-items-center g-4 py-4 py-lg-5">
+      <div class="col-12 col-lg-6">
+        <div class="pe-lg-4">
+          <span class="badge text-bg-primary-subtle text-primary rounded-pill mb-3">Ранняя диагностика • Удобно для родителей</span>
+          <h1 class="display-6 fw-semibold mb-3">Система раннего выявления особенностей развития ребенка</h1>
+          <p class="lead text-muted mb-4">
+            Родители могут пройти диагностический опросник для оценки развития ребенка и при необходимости отправить результаты специалистам для анализа.
+          </p>
+
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-primary btn-lg rounded-4" href="{% url 'survey_page' 'kdi' %}">Начать опрос</a>
+            <a class="btn btn-outline-primary btn-lg rounded-4" href="#about">Узнать больше</a>
+          </div>
+
+          <div class="mt-4">
+            <div class="card card-soft rounded-4 border-0">
+              <div class="card-body">
+                <div class="d-flex flex-column flex-md-row gap-3">
+                  <div class="flex-fill">
+                    <div class="fw-semibold">Доступные опросники</div>
+                    <div class="text-muted small">KID(до 16 месяцев), RCDI(от 14 месяцев до 3.5) ЕЖС, M-CHAT (вопросы позже будут загружаться из базы данных).</div>
+                  </div>
+                  <div class="flex-fill">
+                    <div class="fw-semibold">Конфиденциальность</div>
+                    <div class="text-muted small">Родители сами решают, отправлять ли результаты специалистам.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <div class="card rounded-4 border-0 shadow-sm overflow-hidden">
+          <div class="ratio ratio-4x3 bg-light">
+            <img
+              src="{% static 'img/family_with_child_placeholder.jpg' %}"
+              alt="Семья с ребенком"
+              class="w-100 h-100 object-fit-cover"
+            >
+          </div>
+          <div class="card-body">
+            <!-- <div class="text-muted small">
+              Изображение-заглушка: <code>family_with_child_placeholder.jpg</code> (заменяем позже).
+            </div> -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="about" class="row g-4 pb-5">
+      <div class="col-12 col-lg-7">
+        <div class="card rounded-4 border-0 shadow-sm">
+          <div class="card-body p-4 p-lg-5">
+            <h2 class="h4 fw-semibold mb-2">Как это работает</h2>
+            <p class="text-muted mb-4">
+              Выберите опросник, ответьте на вопросы и просмотрите результат. В дальнейшем ответы будут сохраняться и визуализироваться.
+            </p>
+            <div class="row g-3">
+              <div class="col-12 col-md-4">
+                <div class="p-3 rounded-4 bg-soft">
+                  <div class="fw-semibold">1) Выберите опросник</div>
+                  <div class="text-muted small">KID, RCDI, ЕЖС, M-CHAT.</div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="p-3 rounded-4 bg-soft">
+                  <div class="fw-semibold">2) Ответьте просто</div>
+                  <div class="text-muted small">Удобные варианты ответов на телефоне.</div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="p-3 rounded-4 bg-soft">
+                  <div class="fw-semibold">3) Просмотрите и при желании отправьте</div>
+                  <div class="text-muted small">Опциональная отправка специалистам.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-5">
+        <div class="card rounded-4 border-0 shadow-sm">
+          <div class="card-body p-4 p-lg-5">
+            <h2 class="h4 fw-semibold mb-3">Вход</h2>
+            <p class="text-muted small mb-3">
+              Аккаунт поможет сохранять историю прохождения опросников (логика будет расширена).
+            </p>
+            <a class="btn btn-primary w-100 rounded-4" href="{% url 'login' %}">Войти</a>
+            <div class="text-center mt-3">
+              <a class="link-primary" href="{% url 'register' %}">Зарегистрироваться</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
