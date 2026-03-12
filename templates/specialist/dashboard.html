@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Панель специалиста{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-4">
+      <div>
+        <h1 class="h3 fw-semibold mb-1">Панель специалиста</h1>
+        <div class="text-muted small">
+          Здесь отображаются опросы, по которым родители дали согласие на отправку результатов специалисту.
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-4">
+        <div class="card rounded-4 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="text-muted small mb-1">Новые случаи</div>
+            <div class="h4 mb-0">{{ new_cases }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="card rounded-4 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="text-muted small mb-1">Всего опросов</div>
+            <div class="h4 mb-0">{{ total_cases }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="card rounded-4 border-0 shadow-sm">
+          <div class="card-body">
+            <div class="text-muted small mb-1">Ожидают просмотра</div>
+            <div class="h4 mb-0">{{ pending_cases }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card rounded-4 border-0 shadow-sm">
+      <div class="card-body">
+        <h2 class="h5 fw-semibold mb-3">Список опросов</h2>
+
+        {% if sessions %}
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Имя родителя</th>
+                  <th>Имя ребенка</th>
+                  <th>Возраст ребенка</th>
+                  <th>Тип опросника</th>
+                  <th>Дата прохождения</th>
+                  <th>Итоговый результат</th>
+                  <th>Статус</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for session in sessions %}
+                  <tr>
+                    <td>{{ session.user.email|default:"—" }}</td>
+                    <td>
+                      {% if session.child %}
+                        {{ session.child.first_name }} {{ session.child.last_name }}
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if session.child and session.child.age_months %}
+                        {{ session.child.age_months }} мес.
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
+                    <td>{{ session.survey_type.name }}</td>
+                    <td>
+                      {% if session.completed_at %}
+                        {{ session.completed_at|date:"d.m.Y H:i" }}
+                      {% else %}
+                        {{ session.started_at|date:"d.m.Y H:i" }}
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if session.final_score %}
+                        {{ session.final_score }}
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if session.status == "new" %}
+                        <span class="badge text-bg-primary">Новый</span>
+                      {% else %}
+                        <span class="badge text-bg-secondary">Просмотрено</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <a href="{% url 'specialist_case_detail' session.pk %}" class="btn btn-sm btn-outline-primary rounded-4">
+                        Открыть
+                      </a>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-muted small">
+            Пока нет опросов с согласием на отправку специалисту.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}
+

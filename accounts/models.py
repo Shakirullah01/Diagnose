@@ -33,6 +33,23 @@ class User(AbstractUser):
     username = None
     email = models.EmailField(unique=True)
 
+    ROLE_PARENT = "parent"
+    ROLE_SPECIALIST = "specialist"
+    ROLE_ADMIN = "admin"
+
+    ROLE_CHOICES = [
+        (ROLE_PARENT, "Родитель"),
+        (ROLE_SPECIALIST, "Специалист"),
+        (ROLE_ADMIN, "Администратор"),
+    ]
+
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default=ROLE_PARENT,
+        verbose_name="Роль",
+    )
+
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS: list[str] = []
 
@@ -40,4 +57,8 @@ class User(AbstractUser):
 
     def __str__(self) -> str:
         return self.email
+
+    @property
+    def is_specialist(self) -> bool:
+        return self.role == self.ROLE_SPECIALIST or self.is_staff
 

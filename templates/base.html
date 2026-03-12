@@ -30,6 +30,9 @@
             <li class="nav-item"><a class="nav-link" href="{% url 'survey_page' 'rcdi' %}">RCDI(от 14 месяцев до 3.5 лет)</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'survey_page' 'ezhs' %}">ЕЖС</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'survey_page' 'm-chat' %}">M-CHAT</a></li>
+            {% if user.is_authenticated and user.is_specialist %}
+              <li class="nav-item"><a class="nav-link fw-semibold text-primary" href="{% url 'specialist_dashboard' %}">Панель специалиста</a></li>
+            {% endif %}
             <li class="nav-item ms-lg-2">
             {% if user.is_authenticated %}
               <a class="btn btn-outline-primary btn-sm rounded-4" href="{% url 'logout' %}">Выйти</a>

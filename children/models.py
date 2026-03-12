@@ -7,6 +7,7 @@ class Child(models.Model):
     first_name = models.CharField(max_length=80)
     last_name = models.CharField(max_length=80, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
+    age_months = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="Возраст (в месяцах)")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:

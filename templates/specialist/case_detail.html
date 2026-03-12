@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Кейс #{{ session.id }} | Панель специалиста{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3">
+      <div>
+        <h1 class="h4 fw-semibold mb-1">Кейс по опроснику {{ session.survey_type.name }}</h1>
+        <div class="text-muted small">
+          Дата прохождения:
+          {% if session.completed_at %}
+            {{ session.completed_at|date:"d.m.Y H:i" }}
+          {% else %}
+            {{ session.started_at|date:"d.m.Y H:i" }}
+          {% endif %}
+        </div>
+      </div>
+      <a href="{% url 'specialist_dashboard' %}" class="btn btn-outline-secondary rounded-4">Назад к списку</a>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-4">
+        <div class="card rounded-4 border-0 shadow-sm h-100">
+          <div class="card-body">
+            <h2 class="h6 fw-semibold mb-3">Родитель</h2>
+            <p class="mb-1">
+              <span class="text-muted small d-block">Имя</span>
+              <span>{{ session.user.email|default:"—" }}</span>
+            </p>
+            <p class="mb-0">
+              <span class="text-muted small d-block">Email</span>
+              <span>{{ session.user.email|default:"—" }}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-4">
+        <div class="card rounded-4 border-0 shadow-sm h-100">
+          <div class="card-body">
+            <h2 class="h6 fw-semibold mb-3">Ребенок</h2>
+            <p class="mb-1">
+              <span class="text-muted small d-block">Имя</span>
+              {% if session.child %}
+                <span>{{ session.child.first_name }} {{ session.child.last_name }}</span>
+              {% else %}
+                <span>—</span>
+              {% endif %}
+            </p>
+            <p class="mb-0">
+              <span class="text-muted small d-block">Возраст</span>
+              {% if session.child and session.child.age_months %}
+                <span>{{ session.child.age_months }} мес.</span>
+              {% else %}
+                <span>—</span>
+              {% endif %}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-4">
+        <div class="card rounded-4 border-0 shadow-sm h-100">
+          <div class="card-body">
+            <h2 class="h6 fw-semibold mb-3">Результат опроса</h2>
+            <p class="mb-1">
+              <span class="text-muted small d-block">Итоговый балл</span>
+              <span>{{ session.final_score|default:"—" }}</span>
+            </p>
+            <p class="mb-0">
+              <span class="text-muted small d-block">Заключение</span>
+              <span>{{ session.result_text|default:"—" }}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-lg-6">
+        <div class="card rounded-4 border-0 shadow-sm h-100">
+          <div class="card-body">
+            <h2 class="h6 fw-semibold mb-3">Комментарии специалиста</h2>
+
+            <form method="post" class="vstack gap-2 mb-3">
+              {% csrf_token %}
+              <div>
+                <label class="form-label small text-muted" for="comment">Комментарий</label>
+                <textarea id="comment" name="comment" rows="2" class="form-control rounded-4" placeholder="Ваш комментарий"></textarea>
+              </div>
+              <div>
+                <label class="form-label small text-muted" for="recommendation">Рекомендация для родителей</label>
+                <textarea id="recommendation" name="recommendation" rows="2" class="form-control rounded-4" placeholder="Рекомендации, на что обратить внимание, какие шаги предпринять"></textarea>
+              </div>
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                <button type="submit" name="action" value="add_note" class="btn btn-primary rounded-4">
+                  Добавить комментарий
+                </button>
+                <button type="submit" name="action" value="mark_viewed" class="btn btn-outline-secondary rounded-4">
+                  Отметить как просмотрено
+                </button>
+              </div>
+            </form>
+
+            {% if session.notes.all %}
+              <div class="vstack gap-2">
+                {% for note in session.notes.all %}
+                  <div class="border rounded-4 p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <div class="small text-muted">
+                        {{ note.created_at|date:"d.m.Y H:i" }}
+                      </div>
+                    </div>
+                    {% if note.comment %}
+                      <div class="small mb-1">
+                        <strong>Комментарий:</strong> {{ note.comment }}
+                      </div>
+                    {% endif %}
+                    {% if note.recommendation %}
+                      <div class="small text-muted">
+                        <strong>Рекомендация:</strong> {{ note.recommendation }}
+                      </div>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="text-muted small">
+                Пока нет комментариев специалиста.
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <div class="card rounded-4 border-0 shadow-sm h-100">
+          <div class="card-body">
+            <h2 class="h6 fw-semibold mb-3">Ответы на вопросы</h2>
+
+            {% if session.answers.all %}
+              <div class="vstack gap-3">
+                {% for answer in session.answers.all %}
+                  <div class="border rounded-4 p-3">
+                    <div class="small text-muted mb-1">Вопрос {{ forloop.counter }}</div>
+                    <div class="fw-semibold mb-2">{{ answer.question.text }}</div>
+                    <div class="small">
+                      <span class="text-muted">Ответ:</span>
+                      {% if answer.selected_option %}
+                        {{ answer.selected_option.text }}
+                      {% else %}
+                        не выбран
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="text-muted small">
+                Ответы ещё не сохранены или этот функционал не настроен.
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+

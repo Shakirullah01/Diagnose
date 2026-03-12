@@ -1,10 +1,11 @@
 from math import ceil
 
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db import connection
 from django.db.models import Prefetch
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
 
-from .models import AnswerOption, Question, SurveyType
+from .models import Answer, AnswerOption, Question, SpecialistNote, SurveySession, SurveyType
 
 
 SURVEY_LABELS: dict[str, str] = {
@@ -201,4 +202,70 @@ def survey_page(request, slug: str):
         "age_error": age_error,
     }
     return render(request, "surveys/survey_page.html", context)
+
+
+def _specialist_required(user) -> bool:
+    return user.is_authenticated and getattr(user, "is_specialist", False)
+
+
+@login_required
+@user_passes_test(_specialist_required)
+def specialist_dashboard(request):
+    sessions = (
+        SurveySession.objects.select_related("child", "user", "survey_type")
+        .filter(consent_to_send=True)
+        .order_by("-started_at")
+    )
+
+    total_cases = sessions.count()
+    new_cases = sessions.filter(status=SurveySession.STATUS_NEW).count()
+    pending_cases = sessions.filter(status=SurveySession.STATUS_NEW).count()
+
+    context = {
+        "sessions": sessions,
+        "total_cases": total_cases,
+        "new_cases": new_cases,
+        "pending_cases": pending_cases,
+    }
+    return render(request, "specialist/dashboard.html", context)
+
+
+@login_required
+@user_passes_test(_specialist_required)
+def specialist_case_detail(request, pk: int):
+    session = get_object_or_404(
+        SurveySession.objects.select_related("child", "user", "survey_type").prefetch_related(
+            Prefetch(
+                "answers",
+                queryset=Answer.objects.select_related("question", "selected_option").order_by("question__order"),
+            ),
+            "notes",
+        ),
+        pk=pk,
+        consent_to_send=True,
+    )
+
+    if request.method == "POST":
+        comment = request.POST.get("comment", "").strip()
+        recommendation = request.POST.get("recommendation", "").strip()
+        action = request.POST.get("action")
+
+        if comment or recommendation:
+            SpecialistNote.objects.create(
+                survey_session=session,
+                specialist=request.user,
+                comment=comment,
+                recommendation=recommendation,
+            )
+
+        if action == "mark_viewed":
+            session.status = SurveySession.STATUS_VIEWED
+            session.save(update_fields=["status"])
+
+        return redirect("specialist_case_detail", pk=session.pk)
+
+    context = {
+        "session": session,
+    }
+    return render(request, "specialist/case_detail.html", context)
 
