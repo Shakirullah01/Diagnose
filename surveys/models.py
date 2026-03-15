@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
 
-from children.models import Child
+from children.models import Child, ChildProfile
 
 
 class SurveyType(models.Model):
@@ -45,10 +45,44 @@ class AnswerOption(models.Model):
         return self.text
 
 
+class SurveyScaleOption(models.Model):
+    """Standard answer scale per survey type (e.g. KID/RCDI: 1,2,3 with scores)."""
+    survey_type = models.ForeignKey(SurveyType, on_delete=models.CASCADE, related_name="scale_options")
+    value = models.PositiveSmallIntegerField(verbose_name="Значение (1, 2, 3)")
+    text = models.CharField(max_length=200)
+    score = models.PositiveSmallIntegerField(default=0, verbose_name="Балл")
+
+    class Meta:
+        ordering = ["survey_type", "value"]
+        unique_together = (("survey_type", "value"),)
+
+    def __str__(self) -> str:
+        return f"{self.survey_type.slug}: {self.value} — {self.text}"
+
+
+class KidNorms(models.Model):
+    """Norms for KID survey by age (months). Used to interpret total_score."""
+    age_months = models.PositiveSmallIntegerField(unique=True, verbose_name="Возраст (месяцев)")
+    normal_score = models.PositiveIntegerField(verbose_name="Норма (мин. балл)")
+    mild_delay_score = models.PositiveIntegerField(verbose_name="Порог лёгкого отставания")
+
+    class Meta:
+        ordering = ["age_months"]
+        verbose_name = "Норма KID"
+        verbose_name_plural = "Нормы KID"
+
+    def __str__(self) -> str:
+        return f"{self.age_months} мес.: норма ≥{self.normal_score}"
+
+
 class SurveySession(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     child = models.ForeignKey(Child, on_delete=models.SET_NULL, null=True, blank=True, related_name="survey_sessions")
+    child_profile = models.ForeignKey(
+        ChildProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name="survey_sessions"
+    )
     survey_type = models.ForeignKey(SurveyType, on_delete=models.PROTECT)
+    child_age_months = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="Возраст ребёнка (месяцев)")
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     final_score = models.FloatField(null=True, blank=True, verbose_name="Итоговый балл")
@@ -77,6 +111,10 @@ class Answer(models.Model):
     session = models.ForeignKey(SurveySession, on_delete=models.CASCADE, related_name="answers")
     question = models.ForeignKey(Question, on_delete=models.PROTECT)
     selected_option = models.ForeignKey(AnswerOption, on_delete=models.PROTECT, null=True, blank=True)
+    selected_scale_option = models.ForeignKey(
+        SurveyScaleOption, on_delete=models.PROTECT, null=True, blank=True, related_name="answers"
+    )
+    score = models.FloatField(null=True, blank=True, verbose_name="Балл")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

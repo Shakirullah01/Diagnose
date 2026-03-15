@@ -42,7 +42,9 @@
             <h2 class="h6 fw-semibold mb-3">Ребенок</h2>
             <p class="mb-1">
               <span class="text-muted small d-block">Имя</span>
-              {% if session.child %}
+              {% if session.child_profile %}
+                <span>{{ session.child_profile.child_name }}</span>
+              {% elif session.child %}
                 <span>{{ session.child.first_name }} {{ session.child.last_name }}</span>
               {% else %}
                 <span>—</span>
@@ -50,10 +52,12 @@
             </p>
             <p class="mb-0">
               <span class="text-muted small d-block">Возраст</span>
-              {% if session.child and session.child.age_months %}
+              {% if session.child_profile %}
+                <span>{{ session.child_age_months|default:session.child_profile.age_months }}{% if session.child_age_months or session.child_profile.age_months %} мес.{% else %}—{% endif %}</span>
+              {% elif session.child and session.child.age_months %}
                 <span>{{ session.child.age_months }} мес.</span>
               {% else %}
-                <span>—</span>
+                <span>{{ session.child_age_months|default:"—" }}{% if session.child_age_months %} мес.{% endif %}</span>
               {% endif %}
             </p>
           </div>
@@ -147,7 +151,9 @@
                     <div class="fw-semibold mb-2">{{ answer.question.text }}</div>
                     <div class="small">
                       <span class="text-muted">Ответ:</span>
-                      {% if answer.selected_option %}
+                      {% if answer.selected_scale_option %}
+                        {{ answer.selected_scale_option.value }} — {{ answer.selected_scale_option.text }}
+                      {% elif answer.selected_option %}
                         {{ answer.selected_option.text }}
                       {% else %}
                         не выбран

@@ -64,17 +64,21 @@
                   <tr>
                     <td>{{ session.user.email|default:"—" }}</td>
                     <td>
-                      {% if session.child %}
+                      {% if session.child_profile %}
+                        {{ session.child_profile.child_name }}
+                      {% elif session.child %}
                         {{ session.child.first_name }} {{ session.child.last_name }}
                       {% else %}
                         —
                       {% endif %}
                     </td>
                     <td>
-                      {% if session.child and session.child.age_months %}
+                      {% if session.child_profile %}
+                        {{ session.child_age_months|default:session.child_profile.age_months }} мес.
+                      {% elif session.child and session.child.age_months %}
                         {{ session.child.age_months }} мес.
                       {% else %}
-                        —
+                        {{ session.child_age_months|default:"—" }}{% if session.child_age_months %} мес.{% endif %}
                       {% endif %}
                     </td>
                     <td>{{ session.survey_type.name }}</td>

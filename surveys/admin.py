@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Answer, AnswerOption, Question, SurveySession, SurveyType
+from .models import Answer, AnswerOption, KidNorms, Question, SurveySession, SurveyScaleOption, SurveyType
 
 
 @admin.register(SurveyType)
@@ -28,6 +28,18 @@ class SurveySessionAdmin(admin.ModelAdmin):
     list_filter = ("survey_type", "completed_at")
 
 
+@admin.register(SurveyScaleOption)
+class SurveyScaleOptionAdmin(admin.ModelAdmin):
+    list_display = ("survey_type", "value", "text", "score")
+    list_filter = ("survey_type",)
+
+
+@admin.register(KidNorms)
+class KidNormsAdmin(admin.ModelAdmin):
+    list_display = ("age_months", "normal_score", "mild_delay_score")
+    ordering = ("age_months",)
+
+
 @admin.register(Answer)
 class AnswerAdmin(admin.ModelAdmin):
-    list_display = ("session", "question", "selected_option", "created_at")
+    list_display = ("session", "question", "selected_option", "selected_scale_option", "score", "created_at")

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Мои дети{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-4">
+      <div>
+        <h1 class="h3 fw-semibold mb-1">Мои дети</h1>
+        <p class="text-muted small mb-0">Добавьте анкету ребёнка и пройдите тесты развития.</p>
+      </div>
+      <a href="{% url 'child_profile_create' %}" class="btn btn-primary rounded-4">Добавить ребёнка</a>
+    </div>
+
+    {% if profiles %}
+      <div class="row g-4">
+        {% for profile in profiles %}
+          <div class="col-12 col-md-6 col-lg-4">
+            <div class="card rounded-4 border-0 shadow-sm h-100">
+              <div class="card-body">
+                <h2 class="h5 fw-semibold mb-1">{{ profile.child_name }}</h2>
+                <p class="text-muted small mb-3">
+                  Дата рождения: {{ profile.birth_date|date:"d.m.Y" }}
+                  {% if profile.age_months is not None %}
+                    <span class="d-block">Возраст: {{ profile.age_months }} мес.</span>
+                  {% endif %}
+                </p>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                  <a href="{% url 'survey_start' 'kdi' %}?child_profile={{ profile.pk }}" class="btn btn-sm btn-outline-primary rounded-4">Пройти тест KID</a>
+                  <a href="{% url 'survey_start' 'rcdi' %}?child_profile={{ profile.pk }}" class="btn btn-sm btn-outline-primary rounded-4">Пройти тест RCDI</a>
+                  <a href="{% url 'survey_start' 'm-chat' %}?child_profile={{ profile.pk }}" class="btn btn-sm btn-outline-primary rounded-4">Пройти тест M-CHAT</a>
+                </div>
+                <a href="{% url 'child_profile_edit' profile.pk %}" class="btn btn-sm btn-outline-secondary rounded-4">Редактировать анкету</a>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="card rounded-4 border-0 shadow-sm">
+        <div class="card-body p-5 text-center">
+          <p class="text-muted mb-4">Пока нет добавленных детей. Заполните анкету ребёнка, чтобы начать проходить тесты.</p>
+          <a href="{% url 'child_profile_create' %}" class="btn btn-primary rounded-4">Добавить ребёнка</a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

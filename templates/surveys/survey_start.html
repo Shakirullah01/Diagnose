@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{{ survey_title }} — Инструкция{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-8">
+        <div class="card rounded-4 border-0 shadow-sm">
+          <div class="card-body p-4 p-lg-5">
+            <h1 class="h3 fw-semibold mb-4">{{ instruction_title }}</h1>
+
+            <div class="survey-instruction-body mb-4">
+              {% for paragraph in instruction_body %}
+                <p class="mb-3">{{ paragraph }}</p>
+              {% endfor %}
+            </div>
+
+            <form method="post" class="mt-4" action="{% if child_profile %}?child_profile={{ child_profile.pk }}{% endif %}">
+              {% csrf_token %}
+              {% if child_profile %}
+                <p class="text-muted small mb-3">Ребёнок: <strong>{{ child_profile.child_name }}</strong>, дата рождения {{ child_profile.birth_date|date:"d.m.Y" }}.</p>
+              {% endif %}
+              {% if ask_age and not child_profile %}
+                <div class="mb-4">
+                  <label for="child_age_months" class="form-label fw-semibold">Возраст ребёнка (месяцев)</label>
+                  <input
+                    type="number"
+                    class="form-control form-control-lg rounded-4"
+                    id="child_age_months"
+                    name="child_age_months"
+                    min="{{ ask_age.0 }}"
+                    max="{{ ask_age.1 }}"
+                    placeholder="{{ ask_age.0 }}–{{ ask_age.1 }}"
+                    required
+                  >
+                  <div class="form-text">Укажите возраст от {{ ask_age.0 }} до {{ ask_age.1 }} месяцев.</div>
+                  {% if age_error %}
+                    <div class="text-danger small mt-1">{{ age_error }}</div>
+                  {% endif %}
+                </div>
+              {% endif %}
+
+              <button type="submit" class="btn btn-primary btn-lg rounded-4 w-100">
+                Начать опрос
+              </button>
+            </form>
+
+            <div class="mt-3 text-center">
+              <a href="{% url 'home' %}" class="link-secondary">На главную</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
