@@ -70,16 +70,78 @@
             <h2 class="h6 fw-semibold mb-3">Результат опроса</h2>
             <p class="mb-1">
               <span class="text-muted small d-block">Итоговый балл</span>
-              <span>{{ session.final_score|default:"—" }}</span>
+              <span>{{ session.total_score|default:"—" }}</span>
             </p>
-            <p class="mb-0">
+            <p class="mb-1">
               <span class="text-muted small d-block">Заключение</span>
               <span>{{ session.result_text|default:"—" }}</span>
             </p>
+            {% if session.per_category_scores %}
+            <div class="mt-2 small">
+              <span class="text-muted d-block">По категориям (баллы)</span>
+              <ul class="mb-1 ps-3">
+                {% for k, v in session.per_category_scores.items %}
+                  <li>{{ k }}: {{ v }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+            {% if session.per_category_status %}
+            <div class="mt-1 small">
+              <span class="text-muted d-block">Оценка по категориям</span>
+              <ul class="mb-0 ps-3">
+                {% for k, v in session.per_category_status.items %}
+                  <li>{{ k }}: {{ v }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
           </div>
         </div>
       </div>
     </div>
+
+    {% if detail_rows %}
+    <div class="card rounded-4 border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h6 fw-semibold mb-3">Категориальный анализ</h2>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Категория</th>
+                <th class="text-end">Балл</th>
+                <th class="text-end">Норма</th>
+                <th class="text-end">Порог</th>
+                <th>Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in detail_rows %}
+              <tr>
+                <td>{{ row.label }}</td>
+                <td class="text-end">{{ row.score }}</td>
+                <td class="text-end">{{ row.normal }}</td>
+                <td class="text-end">{{ row.warning }}</td>
+                <td>
+                  {% if row.status == "норма" %}
+                    <span class="badge text-bg-success">норма</span>
+                  {% elif row.status == "пограничное состояние" %}
+                    <span class="badge text-bg-warning text-dark">пограничное</span>
+                  {% elif row.status == "зона риска" %}
+                    <span class="badge text-bg-danger">риск</span>
+                  {% else %}
+                    <span class="badge text-bg-secondary">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <div class="row g-3 mb-4">
       <div class="col-12 col-lg-6">

@@ -159,3 +159,13 @@ class ChildProfile(models.Model):
             return None
         today = timezone.now().date()
         return max(0, (today.year - self.birth_date.year) * 12 + (today.month - self.birth_date.month))
+
+    def age_months_float(self) -> float | None:
+        """Дробный возраст в месяцах (для сопоставления с нормами)."""
+        if not self.birth_date:
+            return None
+        today = timezone.now().date()
+        days = (today - self.birth_date).days
+        if days < 0:
+            return 0.0
+        return round(days / (365.25 / 12), 2)

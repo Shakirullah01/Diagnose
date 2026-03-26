@@ -43,6 +43,31 @@
     <div class="card rounded-4 border-0 shadow-sm">
       <div class="card-body">
         <h2 class="h5 fw-semibold mb-3">Список опросов</h2>
+        <form method="get" class="row g-2 mb-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted">Тип опросника</label>
+            <select name="survey" class="form-select rounded-4">
+              <option value="" {% if not selected_survey %}selected{% endif %}>Все</option>
+              <option value="kdi" {% if selected_survey == "kdi" %}selected{% endif %}>KID</option>
+              <option value="rcdi" {% if selected_survey == "rcdi" %}selected{% endif %}>RCDI</option>
+              <option value="ezhs" {% if selected_survey == "ezhs" %}selected{% endif %}>ЕЖС</option>
+              <option value="m-chat" {% if selected_survey == "m-chat" %}selected{% endif %}>M-CHAT</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted">Уровень риска</label>
+            <select name="risk" class="form-select rounded-4">
+              <option value="" {% if not selected_risk %}selected{% endif %}>Все</option>
+              <option value="risk" {% if selected_risk == "risk" %}selected{% endif %}>Есть зона риска</option>
+              <option value="borderline" {% if selected_risk == "borderline" %}selected{% endif %}>Пограничные</option>
+              <option value="normal" {% if selected_risk == "normal" %}selected{% endif %}>Только норма</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 d-flex align-items-end gap-2">
+            <button type="submit" class="btn btn-primary rounded-4">Применить</button>
+            <a href="{% url 'specialist_dashboard' %}" class="btn btn-outline-secondary rounded-4">Сбросить</a>
+          </div>
+        </form>
 
         {% if sessions %}
           <div class="table-responsive">
@@ -55,6 +80,7 @@
                   <th>Тип опросника</th>
                   <th>Дата прохождения</th>
                   <th>Итоговый результат</th>
+                  <th>Риск</th>
                   <th>Статус</th>
                   <th></th>
                 </tr>
@@ -90,10 +116,21 @@
                       {% endif %}
                     </td>
                     <td>
-                      {% if session.final_score %}
-                        {{ session.final_score }}
+                      {% if session.total_score %}
+                        {{ session.total_score }}
                       {% else %}
                         —
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if session.risk_level == "risk" %}
+                        <span class="badge text-bg-danger">Риск</span>
+                      {% elif session.risk_level == "borderline" %}
+                        <span class="badge text-bg-warning text-dark">Погранично</span>
+                      {% elif session.risk_level == "normal" %}
+                        <span class="badge text-bg-success">Норма</span>
+                      {% else %}
+                        <span class="badge text-bg-secondary">—</span>
                       {% endif %}
                     </td>
                     <td>

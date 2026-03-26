@@ -1,55 +1,196 @@
 {% extends "base.html" %}
 
-{% block title %}Результаты обследования | {{ survey_title }}{% endblock %}
+{% block title %}Результаты развития ребенка | {{ survey_title }}{% endblock %}
 
 {% block content %}
   <div class="container">
     <div class="row justify-content-center">
-      <div class="col-12 col-lg-8">
+      <div class="col-12 col-xl-10">
         <div class="card rounded-4 border-0 shadow-sm mb-4">
           <div class="card-body p-4 p-lg-5">
-            <h1 class="h3 fw-semibold mb-4">Результаты обследования</h1>
+            <h1 class="h3 fw-semibold mb-4">Результаты развития ребенка</h1>
 
+            <h2 class="h6 text-uppercase text-muted mb-3">Сводка</h2>
             <div class="row g-3 mb-4">
               {% if session.child_profile %}
-              <div class="col-12 col-md-6">
-                <div class="p-3 rounded-4 bg-light">
-                  <div class="text-muted small">Ребёнок</div>
+              <div class="col-6 col-md-4">
+                <div class="p-3 rounded-4 bg-light h-100">
+                  <div class="text-muted small">Имя ребенка</div>
                   <div class="fw-semibold">{{ session.child_profile.child_name }}</div>
                 </div>
               </div>
               {% endif %}
-              <div class="col-12 col-md-6">
-                <div class="p-3 rounded-4 bg-light">
-                  <div class="text-muted small">Возраст ребёнка</div>
+              <div class="col-6 col-md-4">
+                <div class="p-3 rounded-4 bg-light h-100">
+                  <div class="text-muted small">Возраст</div>
                   <div class="fw-semibold">
-                    {% if session.child_age_months %}{{ session.child_age_months }} мес.{% elif session.child_profile %}{{ session.child_profile.age_months }} мес.{% else %}—{% endif %}
+                    {% if session.child_age_months is not None %}
+                      {{ session.child_age_months|floatformat:1 }} мес.
+                    {% elif session.child_profile %}
+                      {{ session.child_profile.age_months_float|floatformat:1 }} мес.
+                    {% else %}
+                      —
+                    {% endif %}
                   </div>
                 </div>
               </div>
-              <div class="col-12 col-md-6">
-                <div class="p-3 rounded-4 bg-light">
-                  <div class="text-muted small">Тип опроса</div>
+              <div class="col-6 col-md-4">
+                <div class="p-3 rounded-4 bg-light h-100">
+                  <div class="text-muted small">Пол</div>
+                  <div class="fw-semibold">
+                    {% if session.child_profile and session.child_profile.gender %}
+                      {{ session.child_profile.gender }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-md-4">
+                <div class="p-3 rounded-4 bg-light h-100">
+                  <div class="text-muted small">Тип теста</div>
                   <div class="fw-semibold">{{ session.survey_type.name }}</div>
                 </div>
               </div>
+              {% if survey_slug == "rcdi" and rcdi_sex_used %}
+              <div class="col-6 col-md-4">
+                <div class="p-3 rounded-4 bg-light h-100">
+                  <div class="text-muted small">Пол для норм RCDI</div>
+                  <div class="fw-semibold">{% if rcdi_sex_used == "M" %}М{% else %}Ж{% endif %}</div>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+
+            {% if development_result %}
+            <h2 class="h6 text-uppercase text-muted mb-3">Области развития</h2>
+            <div class="row g-3 mb-4">
+              {% for row in result_rows %}
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="card h-100 rounded-4 border-0 shadow-sm status-card status-{{ row.status_class }}">
+                  <div class="card-body">
+                    <h3 class="h6 fw-semibold mb-2">{{ row.label }}</h3>
+                    <div class="small mb-1"><span class="text-muted">Балл:</span> <strong>{{ row.score }}</strong></div>
+                    <div class="small mb-1"><span class="text-muted">Норма:</span> <strong>{{ row.normal_display }}</strong></div>
+                    <div class="small mb-2">
+                      <span class="text-muted">Статус:</span>
+                      {% if row.status == "норма" %}
+                        <span class="badge rounded-pill text-bg-success">норма</span>
+                      {% elif row.status == "пограничное состояние" %}
+                        <span class="badge rounded-pill text-bg-warning text-dark">пограничное</span>
+                      {% elif row.status == "зона риска" %}
+                        <span class="badge rounded-pill text-bg-danger">риск</span>
+                      {% else %}
+                        <span class="badge rounded-pill text-bg-secondary">—</span>
+                      {% endif %}
+                    </div>
+                    <p class="small text-muted mb-0">{{ row.explanation }}</p>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+
+            <details class="mb-4">
+              <summary class="fw-semibold">Показать таблицу категорий</summary>
+            <div class="table-responsive mb-4">
+              <table class="table table-bordered align-middle rounded-3 overflow-hidden">
+                <thead class="table-light">
+                  <tr>
+                    <th scope="col">Область</th>
+                    <th scope="col" class="text-end">Балл</th>
+                    <th scope="col" class="text-end">Норма (порог)</th>
+                    <th scope="col">Оценка</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in result_rows %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td class="text-end">{{ row.score }}</td>
+                    <td class="text-end">{{ row.normal_display }}</td>
+                    <td>
+                      {% if row.status == "норма" %}
+                        <span class="badge rounded-pill text-bg-success">норма</span>
+                      {% elif row.status == "пограничное состояние" %}
+                        <span class="badge rounded-pill text-bg-warning text-dark">пограничное состояние</span>
+                      {% elif row.status == "зона риска" %}
+                        <span class="badge rounded-pill text-bg-danger">зона риска</span>
+                      {% else %}
+                        <span class="badge rounded-pill text-bg-secondary">—</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            </details>
+
+            {% if radar_chart_json %}
+            <div class="card rounded-4 border-0 shadow-sm mb-4">
+              <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-muted mb-3">Графическое представление результатов</h2>
+                <div class="mb-3" style="min-height: 320px;">
+                  <canvas id="developmentRadarChart" aria-label="Профиль развития ребенка"></canvas>
+                </div>
+                <p class="small text-muted mb-1">
+                  На диаграмме показан профиль развития ребенка по основным категориям.
+                  Чем ближе показатель к возрастной норме, тем более выражено соответствие развития возрасту.
+                </p>
+                {% if radar_below_norm_exists %}
+                  <p class="small text-danger mb-0">
+                    Обратите внимание на области, в которых показатель ниже возрастной нормы.
+                  </p>
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
+
+            <div class="mb-4" style="max-height: 380px;">
+              <canvas id="developmentChart" aria-label="График баллов по областям"></canvas>
+            </div>
+
+            <h2 class="h6 text-uppercase text-muted mb-2">Итоговое заключение</h2>
+            <p class="lead fs-6 mb-4">{{ final_conclusion_text|default:session.result_text }}</p>
+
+            {% if show_risk_recommendation %}
+            <div class="alert alert-danger rounded-4 border-0" role="alert">
+              Рекомендуется обратиться к специалисту для дальнейшей диагностики.
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="row g-3 mb-4">
               <div class="col-12 col-md-6">
                 <div class="p-3 rounded-4 bg-light">
                   <div class="text-muted small">Общий балл</div>
-                  <div class="fw-semibold">{{ session.final_score|default:"—" }}</div>
-                </div>
-              </div>
-              <div class="col-12 col-md-6">
-                <div class="p-3 rounded-4 bg-light">
-                  <div class="text-muted small">Оценка развития</div>
-                  <div class="fw-semibold">{{ session.result_text|default:"—" }}</div>
+                  <div class="fw-semibold">{{ session.total_score|default:"—" }}</div>
                 </div>
               </div>
             </div>
-
             <div class="alert alert-light border rounded-4 mb-4">
               <p class="mb-0">{{ session.result_text|default:"Опрос завершён." }}</p>
             </div>
+            {% endif %}
+
+            {% if parent_explanation_block %}
+            <div class="card rounded-4 border-0 shadow-sm mb-4">
+              <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-muted mb-3">{{ parent_explanation_block.title }}</h2>
+                <p class="mb-3">{{ parent_explanation_block.intro }}</p>
+                <p class="mb-2">{{ parent_explanation_block.areas_title }}</p>
+                <ul class="mb-3">
+                  {% for area in parent_explanation_block.areas %}
+                    <li>{{ area }}</li>
+                  {% endfor %}
+                </ul>
+                {% for paragraph in parent_explanation_block.paragraphs %}
+                  <p class="mb-2">{{ paragraph }}</p>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
 
             {% if not session.consent_to_send %}
               <form method="post" class="mb-3">
@@ -70,11 +211,136 @@
           </div>
         </div>
 
-        <div class="text-center">
+        <div class="text-center pb-4">
           <a href="{% url 'home' %}" class="btn btn-outline-primary rounded-4">На главную</a>
           <a href="{% url 'parent_dashboard' %}" class="btn btn-outline-secondary rounded-4 ms-2">Мои дети</a>
         </div>
       </div>
     </div>
   </div>
+{% endblock %}
+
+{% block extra_js %}
+  {% if development_result and chart_json %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    (function () {
+      var cfg = {{ chart_json|safe }};
+      if (!cfg || !cfg.labels || !cfg.labels.length) return;
+      var ctx = document.getElementById('developmentChart');
+      if (!ctx) return;
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: cfg.labels,
+          datasets: [
+            {
+              label: 'Балл',
+              data: cfg.scores,
+              backgroundColor: cfg.barColors,
+              borderColor: cfg.barColors,
+              borderWidth: 1,
+              order: 2,
+            },
+            {
+              type: 'line',
+              label: 'Порог нормы',
+              data: cfg.normals,
+              borderColor: '#0f172a',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              pointRadius: 4,
+              pointBackgroundColor: '#0f172a',
+              order: 1,
+              yAxisID: 'y',
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'Баллы' },
+            },
+            x: {
+              ticks: { maxRotation: 45, minRotation: 0 },
+            },
+          },
+          plugins: {
+            legend: { position: 'bottom' },
+          },
+        },
+      });
+    })();
+  </script>
+  <script>
+    (function () {
+      var cfg = {{ radar_chart_json|safe }};
+      if (!cfg || !cfg.labels || !cfg.labels.length) return;
+      var ctx = document.getElementById('developmentRadarChart');
+      if (!ctx) return;
+      new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: cfg.labels,
+          datasets: [
+            {
+              label: 'Результат ребенка',
+              data: cfg.scores,
+              borderColor: '#2f6fed',
+              backgroundColor: 'rgba(47, 111, 237, 0.18)',
+              pointBackgroundColor: '#2f6fed',
+              pointRadius: 3,
+              borderWidth: 2,
+            },
+            {
+              label: 'Возрастная норма',
+              data: cfg.normals,
+              borderColor: '#22a06b',
+              backgroundColor: 'rgba(34, 160, 107, 0.12)',
+              pointBackgroundColor: '#22a06b',
+              pointRadius: 3,
+              borderWidth: 2,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Профиль развития ребенка',
+              color: '#334155',
+              font: { size: 16, weight: '600' },
+            },
+            legend: { position: 'bottom' },
+          },
+          scales: {
+            r: {
+              beginAtZero: true,
+              grid: { color: 'rgba(148, 163, 184, .35)' },
+              angleLines: { color: 'rgba(148, 163, 184, .35)' },
+              pointLabels: {
+                color: '#334155',
+                font: { size: 12 },
+              },
+              ticks: {
+                backdropColor: 'transparent',
+                color: '#64748b',
+              },
+            },
+          },
+        },
+      });
+    })();
+  </script>
+  {% endif %}
+  <style>
+    .status-card.status-success { border-left: 6px solid #198754 !important; }
+    .status-card.status-warning { border-left: 6px solid #ffc107 !important; }
+    .status-card.status-danger { border-left: 6px solid #dc3545 !important; }
+  </style>
 {% endblock %}

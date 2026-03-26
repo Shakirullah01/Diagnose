@@ -94,56 +94,69 @@
               </div>
             {% endif %}
 
+            {% if scale_options %}
+              <div class="card rounded-4 border-0 shadow-sm">
+                <div class="card-body p-4">
+                  <h2 class="h6 fw-semibold mb-3">Выберите один вариант ответа:</h2>
+                  <div class="d-flex flex-wrap gap-3">
+                    {% for option in scale_options %}
+                      <div class="answer-legend-item">
+                        <span class="badge text-bg-light border">{{ option.value }}</span>
+                        <span class="small text-muted ms-1">{{ option.text }}</span>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+
             {% for question in questions %}
               <div class="card rounded-4 border-0 shadow-sm">
                 <div class="card-body p-4">
-                  <div class="d-flex gap-2 align-items-start">
-                    <div class="badge text-bg-primary rounded-pill mt-1">
-                      Вопрос {{ first_index|add:forloop.counter0 }}
-                    </div>
-                    <div class="flex-grow-1">
-                      <div class="fw-semibold mb-3">{{ question.text }}</div>
-
-                      <div class="vstack gap-2">
-                        {% if scale_options %}
-                          {% for option in scale_options %}
-                            <div class="form-check card-radio rounded-4 p-3">
-                              <input
-                                class="form-check-input"
-                                type="radio"
-                                name="q_{{ question.id }}"
-                                id="q_{{ question.id }}_opt_{{ option.id }}"
-                                value="{{ option.id }}"
-                                required
-                              >
-                              <label class="form-check-label ms-2" for="q_{{ question.id }}_opt_{{ option.id }}">
-                                <strong>{{ option.value }}</strong> — {{ option.text }}
-                              </label>
-                            </div>
-                          {% endfor %}
-                        {% else %}
-                          {% for option in question.answer_options.all %}
-                            <div class="form-check card-radio rounded-4 p-3">
-                              <input
-                                class="form-check-input"
-                                type="radio"
-                                name="q_{{ question.id }}"
-                                id="q_{{ question.id }}_opt_{{ option.id }}"
-                                value="{{ option.id }}"
-                              >
-                              <label class="form-check-label ms-2" for="q_{{ question.id }}_opt_{{ option.id }}">
-                                {{ option.text }}
-                              </label>
-                            </div>
-                          {% empty %}
-                            <div class="text-muted small">
-                              Для этого вопроса пока нет вариантов ответа.
-                            </div>
-                          {% endfor %}
-                        {% endif %}
-                      </div>
-                    </div>
+                  <div class="fw-semibold mb-3 d-flex gap-2 align-items-start">
+                    <span class="question-number">{{ first_index|add:forloop.counter0 }}.</span>
+                    <span>{{ question.text }}</span>
                   </div>
+
+                  <div class="d-flex gap-2 flex-wrap">
+                    {% if scale_options %}
+                      {% for option in scale_options %}
+                        <div class="option-chip">
+                          <input
+                            class="option-chip-input"
+                            type="radio"
+                            name="q_{{ question.id }}"
+                            id="q_{{ question.id }}_opt_{{ option.id }}"
+                            value="{{ option.id }}"
+                            required
+                          >
+                          <label class="option-chip-label" for="q_{{ question.id }}_opt_{{ option.id }}">{{ option.value }}</label>
+                        </div>
+                      {% endfor %}
+                    {% else %}
+                      {% for option in question.answer_options.all %}
+                        <div class="option-chip">
+                          <input
+                            class="option-chip-input"
+                            type="radio"
+                            name="q_{{ question.id }}"
+                            id="q_{{ question.id }}_opt_{{ option.id }}"
+                            value="{{ option.id }}"
+                          >
+                          <label class="option-chip-label" for="q_{{ question.id }}_opt_{{ option.id }}">{{ forloop.counter }}</label>
+                        </div>
+                      {% empty %}
+                        <div class="text-muted small">
+                          Для этого вопроса пока нет вариантов ответа.
+                        </div>
+                      {% endfor %}
+                    {% endif %}
+                  </div>
+                  {% if not scale_options %}
+                    <div class="small text-muted mt-2">
+                      Варианты ответа выше отмечены цифрами.
+                    </div>
+                  {% endif %}
                 </div>
               </div>
             {% empty %}
@@ -190,4 +203,46 @@
       </div>
     </div>
   </div>
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <style>
+    .question-number {
+      min-width: 1.7rem;
+      color: #2f6fed;
+      font-weight: 700;
+    }
+    .option-chip {
+      position: relative;
+    }
+    .option-chip-input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .option-chip-label {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 999px;
+      border: 2px solid #ced4da;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+      transition: all .15s ease;
+      background: #fff;
+    }
+    .option-chip-input:checked + .option-chip-label {
+      border-color: #2f6fed;
+      background: rgba(47,111,237,.12);
+      color: #1f4db8;
+      box-shadow: 0 0 0 .2rem rgba(47,111,237,.15);
+    }
+    .option-chip-label:hover {
+      border-color: #2f6fed;
+    }
+  </style>
 {% endblock %}

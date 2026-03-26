@@ -26,15 +26,16 @@
         </button>
         <div class="collapse navbar-collapse" id="mainNav">
           <ul class="navbar-nav ms-auto align-items-lg-center mb-2 mb-lg-0">
-            <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'kdi' %}">KID (до 16 мес.)</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'rcdi' %}">RCDI (14 мес. – 3,5 лет)</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'ezhs' %}">ЕЖС</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'm-chat' %}">M-CHAT</a></li>
-            {% if user.is_authenticated %}
-              <li class="nav-item"><a class="nav-link" href="{% url 'parent_dashboard' %}">Мои дети</a></li>
-            {% endif %}
             {% if user.is_authenticated and user.is_specialist %}
               <li class="nav-item"><a class="nav-link fw-semibold text-primary" href="{% url 'specialist_dashboard' %}">Панель специалиста</a></li>
+              <li class="nav-item"><a class="nav-link" href="{% url 'specialist_dashboard' %}?risk=risk">Все анкеты</a></li>
+              <li class="nav-item"><a class="nav-link" href="{% url 'specialist_dashboard' %}">Аналитика</a></li>
+            {% else %}
+              <li class="nav-item"><a class="nav-link" href="{% url 'parent_dashboard' %}">Мои дети</a></li>
+              <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'kdi' %}">Пройти тест</a></li>
+              <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'rcdi' %}">RCDI</a></li>
+              <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'ezhs' %}">ЕЖС</a></li>
+              <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'm-chat' %}">M-CHAT</a></li>
             {% endif %}
             <li class="nav-item ms-lg-2">
             {% if user.is_authenticated %}
@@ -73,5 +74,6 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
   </body>
 </html>

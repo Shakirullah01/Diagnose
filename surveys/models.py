@@ -20,8 +20,8 @@ class Question(models.Model):
     survey_type = models.ForeignKey(SurveyType, on_delete=models.CASCADE, related_name="questions")
     text = models.TextField()
     order = models.PositiveIntegerField(default=0)
+    category = models.CharField(max_length=10, blank=True, db_index=True, verbose_name="Категория")
     is_active = models.BooleanField(default=True)
-     # Для опросников с возрастной градацией (например, ЕЖС)
     age_min_months = models.PositiveSmallIntegerField(null=True, blank=True)
     age_max_months = models.PositiveSmallIntegerField(null=True, blank=True)
 
@@ -47,6 +47,7 @@ class AnswerOption(models.Model):
 
 class SurveyScaleOption(models.Model):
     """Standard answer scale per survey type (e.g. KID/RCDI: 1,2,3 with scores)."""
+
     survey_type = models.ForeignKey(SurveyType, on_delete=models.CASCADE, related_name="scale_options")
     value = models.PositiveSmallIntegerField(verbose_name="Значение (1, 2, 3)")
     text = models.CharField(max_length=200)
@@ -60,19 +61,47 @@ class SurveyScaleOption(models.Model):
         return f"{self.survey_type.slug}: {self.value} — {self.text}"
 
 
-class KidNorms(models.Model):
-    """Norms for KID survey by age (months). Used to interpret total_score."""
-    age_months = models.PositiveSmallIntegerField(unique=True, verbose_name="Возраст (месяцев)")
-    normal_score = models.PositiveIntegerField(verbose_name="Норма (мин. балл)")
-    mild_delay_score = models.PositiveIntegerField(verbose_name="Порог лёгкого отставания")
+class KidNorm(models.Model):
+    """KID norms: match by closest age_months + category (no sex)."""
+
+    age_months = models.FloatField(verbose_name="Возраст (месяцев)")
+    category = models.CharField(max_length=10, db_index=True, verbose_name="Категория")
+    normal = models.FloatField(verbose_name="Норма (порог)")
+    warning = models.FloatField(verbose_name="Пограничное (порог)")
+    low = models.FloatField(verbose_name="Низкий уровень (порог)")
 
     class Meta:
-        ordering = ["age_months"]
-        verbose_name = "Норма KID"
-        verbose_name_plural = "Нормы KID"
+        ordering = ["age_months", "category"]
+        verbose_name = "Норма KID (по категории)"
+        verbose_name_plural = "Нормы KID (по категориям)"
+        indexes = [
+            models.Index(fields=["category", "age_months"]),
+        ]
 
     def __str__(self) -> str:
-        return f"{self.age_months} мес.: норма ≥{self.normal_score}"
+        return f"{self.age_months} мес. {self.category}: норма ≥{self.normal}"
+
+
+class RCDINorm(models.Model):
+    """RCDI norms: match by closest age_months + sex + category."""
+
+    age_months = models.FloatField(verbose_name="Возраст (месяцев)")
+    sex = models.CharField(max_length=1, choices=[("M", "М"), ("F", "Ж")], db_index=True)
+    category = models.CharField(max_length=10, db_index=True, verbose_name="Категория")
+    normal = models.FloatField(verbose_name="Норма (порог)")
+    warning = models.FloatField(verbose_name="Пограничное (порог)")
+    low = models.FloatField(verbose_name="Низкий уровень (порог)")
+
+    class Meta:
+        ordering = ["age_months", "sex", "category"]
+        verbose_name = "Норма RCDI"
+        verbose_name_plural = "Нормы RCDI"
+        indexes = [
+            models.Index(fields=["sex", "category", "age_months"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.age_months} мес. {self.sex} {self.category}: норма ≥{self.normal}"
 
 
 class SurveySession(models.Model):
@@ -82,10 +111,12 @@ class SurveySession(models.Model):
         ChildProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name="survey_sessions"
     )
     survey_type = models.ForeignKey(SurveyType, on_delete=models.PROTECT)
-    child_age_months = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="Возраст ребёнка (месяцев)")
+    child_age_months = models.FloatField(null=True, blank=True, verbose_name="Возраст ребёнка (месяцев)")
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
-    final_score = models.FloatField(null=True, blank=True, verbose_name="Итоговый балл")
+    total_score = models.FloatField(null=True, blank=True, verbose_name="Общий балл")
+    per_category_scores = models.JSONField(null=True, blank=True, verbose_name="Баллы по категориям")
+    per_category_status = models.JSONField(null=True, blank=True, verbose_name="Оценка по категориям")
     result_text = models.TextField(blank=True, verbose_name="Заключение")
     consent_to_send = models.BooleanField(default=False, verbose_name="Согласие на отправку специалисту")
 
@@ -136,4 +167,3 @@ class SpecialistNote(models.Model):
 
     def __str__(self) -> str:
         return f"Note for session {self.survey_session_id} by {self.specialist_id}"
-

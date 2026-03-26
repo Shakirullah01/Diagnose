@@ -9,7 +9,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from children.models import ChildProfile
-from .models import Answer, AnswerOption, KidNorms, Question, SpecialistNote, SurveySession, SurveyScaleOption, SurveyType
+from .kid_scoring import score_kid_session
+from .models import Answer, AnswerOption, Question, SpecialistNote, SurveySession, SurveyScaleOption, SurveyType
+from .rcdi_scoring import score_rcdi_session
+from .result_display import build_development_result_context
 
 
 SURVEY_LABELS: dict[str, str] = {
@@ -64,6 +67,14 @@ SURVEY_INSTRUCTIONS: dict[str, dict] = {
 
 def home(request):
     return render(request, "home.html")
+
+
+def _is_specialist(user) -> bool:
+    return user.is_authenticated and getattr(user, "is_specialist", False)
+
+
+def _is_parent(user) -> bool:
+    return user.is_authenticated and getattr(user, "role", "") == "parent"
 
 
 def _ensure_questions_imported_from_legacy(slug: str) -> SurveyType | None:
@@ -176,26 +187,10 @@ def _ensure_questions_imported_from_legacy(slug: str) -> SurveyType | None:
     return survey_type
 
 
-def _compute_kid_result(session: SurveySession) -> str:
-    """KID only: compare total_score to KidNorms; return one of two result texts."""
-    if session.final_score is None or session.child_age_months is None:
-        return ""
-    norms = KidNorms.objects.filter(age_months=session.child_age_months).first()
-    if not norms:
-        norms = KidNorms.objects.order_by("age_months").first()
-        for n in KidNorms.objects.order_by("age_months"):
-            if n.age_months <= session.child_age_months:
-                norms = n
-        if not norms:
-            return ""
-    score = session.final_score
-    if score >= norms.normal_score:
-        return "Развитие соответствует возрастной норме"
-    return "Наблюдаются признаки возможного отставания развития"
-
-
 def survey_start(request, slug: str):
     """Show instruction page; on POST create session and redirect to survey."""
+    if _is_specialist(request.user):
+        return redirect("specialist_dashboard")
     if slug not in SURVEY_INSTRUCTIONS:
         return redirect("survey_page", slug=slug)
     survey_type = _ensure_questions_imported_from_legacy(slug)
@@ -221,13 +216,13 @@ def survey_start(request, slug: str):
     if request.method == "POST":
         child_age_months = None
         if child_profile:
-            child_age_months = child_profile.age_months()
-        if ask_age and not child_age_months:
+            child_age_months = child_profile.age_months_float()
+        if ask_age and child_age_months is None:
             try:
                 raw = request.POST.get("child_age_months", "").strip()
-                child_age_months = int(raw)
+                child_age_months = float(int(raw))
                 low, high = ask_age
-                if child_age_months < low or child_age_months > high:
+                if int(child_age_months) < low or int(child_age_months) > high:
                     age_error = f"Укажите возраст от {low} до {high} месяцев."
             except (ValueError, TypeError):
                 age_error = "Введите целое число (возраст в месяцах)."
@@ -240,7 +235,9 @@ def survey_start(request, slug: str):
                 user=request.user if request.user.is_authenticated else None,
                 child_profile=child_profile,
                 survey_type=survey_type,
-                child_age_months=child_age_months or (child_profile.age_months() if child_profile else None),
+                child_age_months=child_age_months
+                if child_age_months is not None
+                else (child_profile.age_months_float() if child_profile else None),
             )
             url = reverse("survey_page", args=[slug]) + "?session_id=" + str(session.pk)
             return redirect(url)
@@ -258,6 +255,8 @@ def survey_start(request, slug: str):
 
 
 def survey_page(request, slug: str):
+    if _is_specialist(request.user):
+        return redirect("specialist_dashboard")
     title = SURVEY_LABELS.get(slug, slug.upper())
     session_id_raw = request.GET.get("session_id")
     survey_session = None
@@ -290,6 +289,8 @@ def survey_page(request, slug: str):
                 age_error = "Введите целое число месяцев."
 
     base_qs = Question.objects.filter(survey_type=survey_type, is_active=True) if survey_type else Question.objects.none()
+    if survey_type and slug in ("kdi", "rcdi"):
+        base_qs = base_qs.exclude(category="")
 
     if slug == "ezhs":
         # Пока не введён корректный возраст — вопросы не показываем
@@ -352,15 +353,33 @@ def survey_page(request, slug: str):
             return redirect(url)
         # Last page: compute total and result
         total_score = Answer.objects.filter(session=survey_session).aggregate(s=Sum("score"))["s"] or 0
-        survey_session.final_score = total_score if slug == "kdi" else None
         survey_session.completed_at = timezone.now()
+        answers_for_score = list(
+            Answer.objects.filter(session=survey_session).select_related("question")
+        )
         if slug == "kdi":
-            survey_session.result_text = _compute_kid_result(survey_session)
-        elif slug in ("rcdi", "m-chat"):
-            survey_session.result_text = "Опрос завершен. Результаты будут обработаны специалистом."
+            survey_session.total_score = float(total_score)
+            pack = score_kid_session(survey_session, answers_for_score)
+            survey_session.per_category_scores = pack["per_category_scores"]
+            survey_session.per_category_status = pack["per_category_status"]
+            survey_session.result_text = pack["final_conclusion"]
+        elif slug == "rcdi":
+            survey_session.total_score = float(total_score)
+            pack = score_rcdi_session(survey_session, answers_for_score)
+            survey_session.per_category_scores = pack["per_category_scores"]
+            survey_session.per_category_status = pack["per_category_status"]
+            survey_session.result_text = pack["final_conclusion"]
         else:
-            survey_session.result_text = "Опрос завершён."
-        survey_session.save(update_fields=["final_score", "completed_at", "result_text"])
+            survey_session.total_score = float(total_score) if slug in ("ezhs", "m-chat") else None
+            survey_session.per_category_scores = None
+            survey_session.per_category_status = None
+            if slug == "m-chat":
+                survey_session.result_text = "Опрос завершен. Результаты будут обработаны специалистом."
+            else:
+                survey_session.result_text = "Опрос завершён."
+        survey_session.save(
+            update_fields=["completed_at", "result_text", "total_score", "per_category_scores", "per_category_status"]
+        )
         return redirect("survey_result", slug=slug, session_id=survey_session.pk)
 
     shown_until = min(end, total) if total else 0
@@ -389,6 +408,8 @@ def survey_page(request, slug: str):
 
 def survey_result(request, slug: str, session_id: int):
     """Show result after survey completion; allow consent to send to specialist."""
+    if _is_specialist(request.user):
+        return redirect("specialist_dashboard")
     session = get_object_or_404(
         SurveySession.objects.select_related("survey_type", "child_profile", "child", "user"),
         pk=session_id,
@@ -405,31 +426,58 @@ def survey_result(request, slug: str, session_id: int):
         "survey_title": SURVEY_LABELS.get(slug, slug.upper()),
         "session": session,
     }
+    context.update(build_development_result_context(session, slug))
     return render(request, "surveys/survey_result.html", context)
 
 
 def _specialist_required(user) -> bool:
-    return user.is_authenticated and getattr(user, "is_specialist", False)
+    return _is_specialist(user)
 
 
 @login_required
 @user_passes_test(_specialist_required)
 def specialist_dashboard(request):
-    sessions = (
+    sessions_qs = (
         SurveySession.objects.select_related("child_profile", "child", "user", "survey_type")
         .filter(consent_to_send=True)
         .order_by("-started_at")
     )
+    survey_filter = (request.GET.get("survey") or "").strip()
+    risk_filter = (request.GET.get("risk") or "").strip()
 
-    total_cases = sessions.count()
-    new_cases = sessions.filter(status=SurveySession.STATUS_NEW).count()
-    pending_cases = sessions.filter(status=SurveySession.STATUS_NEW).count()
+    if survey_filter:
+        sessions_qs = sessions_qs.filter(survey_type__slug=survey_filter)
+
+    sessions = list(sessions_qs)
+    if risk_filter == "risk":
+        sessions = [s for s in sessions if (s.per_category_status or {}).values() and "зона риска" in (s.per_category_status or {}).values()]
+    elif risk_filter == "borderline":
+        sessions = [s for s in sessions if "пограничное состояние" in (s.per_category_status or {}).values()]
+    elif risk_filter == "normal":
+        sessions = [s for s in sessions if s.per_category_status and all(v == "норма" for v in (s.per_category_status or {}).values())]
+
+    for s in sessions:
+        statuses = list((s.per_category_status or {}).values())
+        if "зона риска" in statuses:
+            s.risk_level = "risk"
+        elif "пограничное состояние" in statuses:
+            s.risk_level = "borderline"
+        elif statuses:
+            s.risk_level = "normal"
+        else:
+            s.risk_level = "unknown"
+
+    total_cases = len(sessions)
+    new_cases = sum(1 for s in sessions if s.status == SurveySession.STATUS_NEW)
+    pending_cases = new_cases
 
     context = {
         "sessions": sessions,
         "total_cases": total_cases,
         "new_cases": new_cases,
         "pending_cases": pending_cases,
+        "selected_survey": survey_filter,
+        "selected_risk": risk_filter,
     }
     return render(request, "specialist/dashboard.html", context)
 
@@ -468,8 +516,23 @@ def specialist_case_detail(request, pk: int):
 
         return redirect("specialist_case_detail", pk=session.pk)
 
+    detail_rows = []
+    if session.survey_type.slug in ("kdi", "rcdi"):
+        pack = build_development_result_context(session, session.survey_type.slug)
+        for row in pack.get("result_rows", []):
+            detail_rows.append(
+                {
+                    "label": row["label"],
+                    "score": row["score"],
+                    "normal": row.get("normal_display", "—"),
+                    "warning": row.get("warning_display", "—"),
+                    "status": row.get("status", ""),
+                }
+            )
+
     context = {
         "session": session,
+        "detail_rows": detail_rows,
     }
     return render(request, "specialist/case_detail.html", context)
 
