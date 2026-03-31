@@ -12,28 +12,36 @@
       <a href="{% url 'child_profile_create' %}" class="btn btn-primary rounded-4">Добавить ребёнка</a>
     </div>
 
-    {% if profiles %}
+    {% if profile_cards %}
       <div class="row g-4">
-        {% for profile in profiles %}
+        {% for item in profile_cards %}
+          {% with profile=item.profile %}
           <div class="col-12 col-md-6 col-lg-4">
             <div class="card rounded-4 border-0 shadow-sm h-100">
               <div class="card-body">
                 <h2 class="h5 fw-semibold mb-1">{{ profile.child_name }}</h2>
                 <p class="text-muted small mb-3">
                   Дата рождения: {{ profile.birth_date|date:"d.m.Y" }}
-                  {% if profile.age_months is not None %}
-                    <span class="d-block">Возраст: {{ profile.age_months }} мес.</span>
+                  {% if item.age_months is not None %}
+                    <span class="d-block">Возраст: {{ item.age_months }} мес.</span>
                   {% endif %}
                 </p>
                 <div class="d-flex flex-wrap gap-2 mb-3">
-                  <a href="{% url 'survey_start' 'kdi' %}?child_profile={{ profile.pk }}" class="btn btn-sm btn-outline-primary rounded-4">Пройти тест KID</a>
-                  <a href="{% url 'survey_start' 'rcdi' %}?child_profile={{ profile.pk }}" class="btn btn-sm btn-outline-primary rounded-4">Пройти тест RCDI</a>
-                  <a href="{% url 'survey_start' 'm-chat' %}?child_profile={{ profile.pk }}" class="btn btn-sm btn-outline-primary rounded-4">Пройти тест M-CHAT</a>
+                  {% if item.show_kdi %}
+                    <a href="{% url 'survey_start' 'kdi' %}?child_profile={{ profile.pk }}" class="btn btn-sm btn-outline-primary rounded-4">Пройти тест KID</a>
+                  {% endif %}
+                  {% if item.show_rcdi %}
+                    <a href="{% url 'survey_start' 'rcdi' %}?child_profile={{ profile.pk }}" class="btn btn-sm btn-outline-primary rounded-4">Пройти тест RCDI</a>
+                  {% endif %}
+                  {% if item.show_mchat %}
+                    <a href="{% url 'survey_start' 'm-chat' %}?child_profile={{ profile.pk }}" class="btn btn-sm btn-outline-primary rounded-4">Пройти тест M-CHAT</a>
+                  {% endif %}
                 </div>
                 <a href="{% url 'child_profile_edit' profile.pk %}" class="btn btn-sm btn-outline-secondary rounded-4">Редактировать анкету</a>
               </div>
             </div>
           </div>
+          {% endwith %}
         {% endfor %}
       </div>
     {% else %}
@@ -44,5 +52,69 @@
         </div>
       </div>
     {% endif %}
+
+    <div class="card rounded-4 border-0 shadow-sm mt-4">
+      <div class="card-body">
+        <h2 class="h5 fw-semibold mb-3">История обследований</h2>
+        <form method="get" class="row g-2 mb-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted">Ребёнок</label>
+            <select class="form-select rounded-4" name="history_child">
+              <option value="">Все</option>
+              {% for p in profiles %}
+                <option value="{{ p.id }}" {% if history_filter_child == p.id|stringformat:"s" %}selected{% endif %}>{{ p.child_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small text-muted">Опрос</label>
+            <select class="form-select rounded-4" name="history_survey">
+              <option value="">Все</option>
+              <option value="kdi" {% if history_filter_survey == "kdi" %}selected{% endif %}>KID</option>
+              <option value="rcdi" {% if history_filter_survey == "rcdi" %}selected{% endif %}>RCDI</option>
+              <option value="m-chat" {% if history_filter_survey == "m-chat" %}selected{% endif %}>M-CHAT</option>
+              <option value="ezhs" {% if history_filter_survey == "ezhs" %}selected{% endif %}>ЕЖС</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small text-muted">Дата</label>
+            <input class="form-control rounded-4" type="date" name="history_date" value="{{ history_filter_date }}">
+          </div>
+          <div class="col-12 col-md-2 d-flex align-items-end gap-2">
+            <button class="btn btn-primary rounded-4" type="submit">Фильтр</button>
+          </div>
+        </form>
+        {% if history_rows %}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Ребёнок</th>
+                  <th>Опрос</th>
+                  <th>Дата</th>
+                  <th>Статус</th>
+                  <th>Результат</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in history_rows %}
+                <tr>
+                  <td>{{ row.session.child_profile.child_name|default:"—" }}</td>
+                  <td>{{ row.session.survey_type.name }}</td>
+                  <td>{% if row.session.completed_at %}{{ row.session.completed_at|date:"d.m.Y H:i" }}{% else %}—{% endif %}</td>
+                  <td>{{ row.progress_status }}</td>
+                  <td>{{ row.session.result_text|default:"—"|truncatechars:80 }}</td>
+                  <td><a class="btn btn-sm btn-outline-primary rounded-4" href="{% url 'survey_result' row.session.survey_type.slug row.session.id %}">Открыть результат</a></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-muted small">История обследований пока пуста.</div>
+        {% endif %}
+      </div>
+    </div>
   </div>
 {% endblock %}

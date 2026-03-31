@@ -24,7 +24,7 @@ class AnswerOptionAdmin(admin.ModelAdmin):
 
 @admin.register(SurveySession)
 class SurveySessionAdmin(admin.ModelAdmin):
-    list_display = ("survey_type", "user", "started_at", "completed_at", "total_score")
+    list_display = ("survey_type", "user", "started_at", "completed_at", "total_score", "risk_level")
     list_filter = ("survey_type", "completed_at")
 
 

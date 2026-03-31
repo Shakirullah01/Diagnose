@@ -10,7 +10,11 @@
           <div>
             <h1 class="h3 fw-semibold mb-1">Опросник: {{ survey_title }}</h1>
             <div class="text-muted small">
+              {% if survey_slug == 'm-chat' %}
+              Ответьте на вопросы, выбирая один вариант.
+              {% else %}
               Вопросы будут загружаться из базы данных (без хардкода).
+              {% endif %}
             </div>
           </div>
           <div class="d-flex gap-2 flex-wrap">
@@ -57,7 +61,7 @@
           </div>
         {% endif %}
 
-        <div class="card rounded-4 border-0 shadow-sm mb-3">
+        <div class="card rounded-4 border-0 shadow-sm mb-3 sticky-top" style="top:74px; z-index:5;">
           <div class="card-body">
             <div class="d-flex align-items-center justify-content-between mb-2">
               <div class="fw-semibold">Прогресс</div>
@@ -133,6 +137,29 @@
                           <label class="option-chip-label" for="q_{{ question.id }}_opt_{{ option.id }}">{{ option.value }}</label>
                         </div>
                       {% endfor %}
+                    {% elif survey_slug == 'm-chat' %}
+                      <div class="option-chip option-chip-wide">
+                        <input
+                          class="option-chip-input"
+                          type="radio"
+                          name="q_{{ question.id }}"
+                          id="q_{{ question.id }}_yes"
+                          value="yes"
+                          required
+                        >
+                        <label class="option-chip-label option-chip-label-wide" for="q_{{ question.id }}_yes">Да</label>
+                      </div>
+                      <div class="option-chip option-chip-wide">
+                        <input
+                          class="option-chip-input"
+                          type="radio"
+                          name="q_{{ question.id }}"
+                          id="q_{{ question.id }}_no"
+                          value="no"
+                          required
+                        >
+                        <label class="option-chip-label option-chip-label-wide" for="q_{{ question.id }}_no">Нет</label>
+                      </div>
                     {% else %}
                       {% for option in question.answer_options.all %}
                         <div class="option-chip">
@@ -207,6 +234,29 @@
 
 {% block extra_js %}
   {{ block.super }}
+  <script>
+    (function () {
+      var existing = {{ existing_answers_json|safe }};
+      if (existing && typeof existing === 'object') {
+        Object.keys(existing).forEach(function (qid) {
+          var value = String(existing[qid]);
+          var input = document.querySelector('input[name="q_' + qid + '"][value="' + value + '"]');
+          if (input) input.checked = true;
+        });
+      }
+      var form = document.querySelector('form[method="post"]');
+      if (!form) return;
+      var isSubmitting = false;
+      form.addEventListener('submit', function () { isSubmitting = true; });
+      window.addEventListener('beforeunload', function (e) {
+        if (isSubmitting) return;
+        var anyChecked = form.querySelector('input[type="radio"]:checked');
+        if (!anyChecked) return;
+        e.preventDefault();
+        e.returnValue = '';
+      });
+    })();
+  </script>
   <style>
     .question-number {
       min-width: 1.7rem;
@@ -243,6 +293,10 @@
     }
     .option-chip-label:hover {
       border-color: #2f6fed;
+    }
+    .option-chip-label-wide {
+      width: 4.5rem;
+      border-radius: 999px;
     }
   </style>
 {% endblock %}

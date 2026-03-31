@@ -115,6 +115,13 @@ class SurveySession(models.Model):
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     total_score = models.FloatField(null=True, blank=True, verbose_name="Общий балл")
+    risk_level = models.CharField(
+        max_length=10,
+        choices=[("low", "Низкий"), ("medium", "Средний"), ("high", "Высокий")],
+        null=True,
+        blank=True,
+        verbose_name="Уровень риска",
+    )
     per_category_scores = models.JSONField(null=True, blank=True, verbose_name="Баллы по категориям")
     per_category_status = models.JSONField(null=True, blank=True, verbose_name="Оценка по категориям")
     result_text = models.TextField(blank=True, verbose_name="Заключение")

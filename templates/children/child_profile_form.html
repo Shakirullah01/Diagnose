@@ -13,7 +13,8 @@
             <form method="post">
               {% csrf_token %}
 
-              <div class="mb-4">
+              <div class="card rounded-4 border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
                 <h2 class="h6 fw-semibold text-primary mb-3">1. Информация о ребёнке</h2>
                 <div class="row g-3">
                   <div class="col-12 col-md-6">
@@ -28,7 +29,13 @@
                   </div>
                   <div class="col-12 col-md-6">
                     <label class="form-label">{{ form.gender.label }}</label>
-                    {{ form.gender }}
+                    <div class="radio-list">
+                      {% for choice in form.gender %}
+                        <label class="radio-row" for="{{ choice.id_for_label }}">
+                          {{ choice.tag }} <span>{{ choice.choice_label }}</span>
+                        </label>
+                      {% endfor %}
+                    </div>
                     {{ form.gender.errors }}
                   </div>
                   <div class="col-12 col-md-6">
@@ -47,78 +54,91 @@
                     {{ form.phone.errors }}
                   </div>
                 </div>
+                </div>
               </div>
 
-              <div class="mb-4">
+              <div class="card rounded-4 border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
                 <h2 class="h6 fw-semibold text-primary mb-3">2. Кто заполняет тест</h2>
                 <label class="form-label">{{ form.filled_by.label }}</label>
-                <div class="d-flex flex-wrap gap-3">
+                <div class="radio-list">
                   {% for choice in form.filled_by %}
-                    <div class="form-check">
+                    <label class="radio-row" for="{{ choice.id_for_label }}">
                       {{ choice.tag }}
-                      <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                    </div>
+                      <span>{{ choice.choice_label }}</span>
+                    </label>
                   {% endfor %}
                 </div>
                 {{ form.filled_by.errors }}
+                </div>
               </div>
 
-              <div class="mb-4">
+              <div class="card rounded-4 border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
                 <h2 class="h6 fw-semibold text-primary mb-3">3. Состояние ребёнка</h2>
                 <div class="mb-3">
                   <label class="form-label">{{ form.birth_conditions.label }}</label>
-                  <div class="d-flex flex-wrap gap-3">
+                  <div class="radio-list">
                     {% for choice in form.birth_conditions %}
-                      <div class="form-check">
+                      <label class="radio-row" for="{{ choice.id_for_label }}">
                         {{ choice.tag }}
-                        <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                      </div>
+                        <span>{{ choice.choice_label }}</span>
+                      </label>
                     {% endfor %}
                   </div>
                   {{ form.birth_conditions.errors }}
                 </div>
                 <div class="mb-3">
                   <label class="form-label">{{ form.child_health.label }}</label>
-                  <div class="d-flex flex-wrap gap-3">
+                  <div class="radio-list">
                     {% for choice in form.child_health %}
-                      <div class="form-check">
+                      <label class="radio-row" for="{{ choice.id_for_label }}">
                         {{ choice.tag }}
-                        <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                      </div>
+                        <span>{{ choice.choice_label }}</span>
+                      </label>
                     {% endfor %}
                   </div>
                   {{ form.child_health.errors }}
                 </div>
-                <div class="form-check">
-                  {{ form.seizures }}
-                  <label class="form-check-label" for="{{ form.seizures.id_for_label }}">{{ form.seizures.label }}</label>
+                <div>
+                  <label class="form-label">{{ form.seizures.label }}</label>
+                  <div class="radio-list">
+                    {% for choice in form.seizures %}
+                      <label class="radio-row" for="{{ choice.id_for_label }}">
+                        {{ choice.tag }}
+                        <span>{{ choice.choice_label }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
                 </div>
                 {{ form.seizures.errors }}
+                </div>
               </div>
 
-              <div class="mb-4">
+              <div class="card rounded-4 border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
                 <h2 class="h6 fw-semibold text-primary mb-3">4. Семья и воспитание</h2>
                 <div class="row g-3 mb-3">
                   <div class="col-12 col-md-6">
                     <label class="form-label">{{ form.where_child_grows.label }}</label>
-                    <div class="d-flex flex-wrap gap-2">
+                    <div class="radio-list">
                       {% for choice in form.where_child_grows %}
-                        <div class="form-check">
+                        <label class="radio-row" for="{{ choice.id_for_label }}">
                           {{ choice.tag }}
-                          <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                        </div>
+                          <span>{{ choice.choice_label }}</span>
+                        </label>
                       {% endfor %}
                     </div>
                     {{ form.where_child_grows.errors }}
                   </div>
                   <div class="col-12 col-md-6">
                     <label class="form-label">{{ form.family_language.label }}</label>
-                    <div class="d-flex flex-wrap gap-2">
+                    <div class="radio-list">
                       {% for choice in form.family_language %}
-                        <div class="form-check">
+                        <label class="radio-row" for="{{ choice.id_for_label }}">
                           {{ choice.tag }}
-                          <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                        </div>
+                          <span>{{ choice.choice_label }}</span>
+                        </label>
                       {% endfor %}
                     </div>
                     {{ form.family_language.errors }}
@@ -132,24 +152,24 @@
                   </div>
                   <div class="col-12 col-md-4">
                     <label class="form-label">{{ form.main_caregiver.label }}</label>
-                    <div class="d-flex flex-wrap gap-2">
+                    <div class="radio-list">
                       {% for choice in form.main_caregiver %}
-                        <div class="form-check">
+                        <label class="radio-row" for="{{ choice.id_for_label }}">
                           {{ choice.tag }}
-                          <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                        </div>
+                          <span>{{ choice.choice_label }}</span>
+                        </label>
                       {% endfor %}
                     </div>
                     {{ form.main_caregiver.errors }}
                   </div>
                   <div class="col-12 col-md-4">
                     <label class="form-label">{{ form.caregiver_mood.label }}</label>
-                    <div class="d-flex flex-wrap gap-2">
+                    <div class="radio-list">
                       {% for choice in form.caregiver_mood %}
-                        <div class="form-check">
+                        <label class="radio-row" for="{{ choice.id_for_label }}">
                           {{ choice.tag }}
-                          <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                        </div>
+                          <span>{{ choice.choice_label }}</span>
+                        </label>
                       {% endfor %}
                     </div>
                     {{ form.caregiver_mood.errors }}
@@ -157,31 +177,33 @@
                 </div>
                 <div class="mb-3">
                   <label class="form-label">{{ form.caregiver_values.label }}</label>
-                  <div class="d-flex flex-wrap gap-3">
+                  <div class="radio-list">
                     {% for choice in form.caregiver_values %}
-                      <div class="form-check">
+                      <label class="radio-row" for="{{ choice.id_for_label }}">
                         {{ choice.tag }}
-                        <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                      </div>
+                        <span>{{ choice.choice_label }}</span>
+                      </label>
                     {% endfor %}
                   </div>
                   {{ form.caregiver_values.errors }}
                 </div>
                 <div class="mb-3">
                   <label class="form-label">{{ form.economic_status.label }}</label>
-                  <div class="d-flex flex-wrap gap-3">
+                  <div class="radio-list">
                     {% for choice in form.economic_status %}
-                      <div class="form-check">
+                      <label class="radio-row" for="{{ choice.id_for_label }}">
                         {{ choice.tag }}
-                        <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                      </div>
+                        <span>{{ choice.choice_label }}</span>
+                      </label>
                     {% endfor %}
                   </div>
                   {{ form.economic_status.errors }}
                 </div>
+                </div>
               </div>
 
-              <div class="mb-4">
+              <div class="card rounded-4 border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
                 <h2 class="h6 fw-semibold text-primary mb-3">5. Родители и образование</h2>
                 <div class="row g-3 mb-3">
                   <div class="col-12 col-md-4">
@@ -202,43 +224,47 @@
                 </div>
                 <div class="mb-3">
                   <label class="form-label">{{ form.mother_education.label }}</label>
-                  <div class="d-flex flex-wrap gap-3">
+                  <div class="radio-list">
                     {% for choice in form.mother_education %}
-                      <div class="form-check">
+                      <label class="radio-row" for="{{ choice.id_for_label }}">
                         {{ choice.tag }}
-                        <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                      </div>
+                        <span>{{ choice.choice_label }}</span>
+                      </label>
                     {% endfor %}
                   </div>
                   {{ form.mother_education.errors }}
                 </div>
                 <div class="mb-3">
                   <label class="form-label">{{ form.father_education.label }}</label>
-                  <div class="d-flex flex-wrap gap-3">
+                  <div class="radio-list">
                     {% for choice in form.father_education %}
-                      <div class="form-check">
+                      <label class="radio-row" for="{{ choice.id_for_label }}">
                         {{ choice.tag }}
-                        <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                      </div>
+                        <span>{{ choice.choice_label }}</span>
+                      </label>
                     {% endfor %}
                   </div>
                   {{ form.father_education.errors }}
                 </div>
                 <div>
                   <label class="form-label">{{ form.caregiver_education.label }}</label>
-                  <div class="d-flex flex-wrap gap-3">
+                  <div class="radio-list">
                     {% for choice in form.caregiver_education %}
-                      <div class="form-check">
+                      <label class="radio-row" for="{{ choice.id_for_label }}">
                         {{ choice.tag }}
-                        <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
-                      </div>
+                        <span>{{ choice.choice_label }}</span>
+                      </label>
                     {% endfor %}
                   </div>
                   {{ form.caregiver_education.errors }}
                 </div>
+                </div>
               </div>
 
-              <button type="submit" class="btn btn-primary btn-lg rounded-4 w-100">Сохранить анкету</button>
+              <div class="d-flex flex-column flex-md-row gap-2">
+                <button type="submit" class="btn btn-primary btn-lg rounded-4 flex-grow-1">Сохранить анкету</button>
+                <a href="{% url 'parent_dashboard' %}" class="btn btn-outline-secondary btn-lg rounded-4">Отмена</a>
+              </div>
             </form>
 
             <div class="mt-3 text-center">
@@ -249,4 +275,46 @@
       </div>
     </div>
   </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    var phoneInput = document.getElementById('id_phone');
+    if (!phoneInput) return;
+    phoneInput.addEventListener('input', function () {
+      var digits = phoneInput.value.replace(/\D/g, '').slice(0, 11);
+      if (!digits) {
+        phoneInput.value = '';
+        return;
+      }
+      if (digits[0] === '8') digits = '7' + digits.slice(1);
+      var out = '+7';
+      if (digits.length > 1) out += ' (' + digits.slice(1, 4);
+      if (digits.length >= 4) out += ') ' + digits.slice(4, 7);
+      if (digits.length >= 7) out += '-' + digits.slice(7, 9);
+      if (digits.length >= 9) out += '-' + digits.slice(9, 11);
+      phoneInput.value = out;
+    });
+  })();
+</script>
+<style>
+  .radio-list {
+    display: grid;
+    gap: .5rem;
+  }
+  .radio-row {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .5rem .75rem;
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: .75rem;
+    cursor: pointer;
+  }
+  .radio-row:hover {
+    border-color: rgba(47,111,237,.45);
+    background: rgba(47,111,237,.04);
+  }
+</style>
 {% endblock %}

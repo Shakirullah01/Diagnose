@@ -58,10 +58,26 @@
             <label class="form-label small text-muted">Уровень риска</label>
             <select name="risk" class="form-select rounded-4">
               <option value="" {% if not selected_risk %}selected{% endif %}>Все</option>
-              <option value="risk" {% if selected_risk == "risk" %}selected{% endif %}>Есть зона риска</option>
+              <option value="risk" {% if selected_risk == "risk" %}selected{% endif %}>Высокий риск</option>
               <option value="borderline" {% if selected_risk == "borderline" %}selected{% endif %}>Пограничные</option>
               <option value="normal" {% if selected_risk == "normal" %}selected{% endif %}>Только норма</option>
             </select>
+          </div>
+          <div class="col-12 col-md-2">
+            <label class="form-label small text-muted">Статус</label>
+            <select name="status" class="form-select rounded-4">
+              <option value="" {% if not selected_status %}selected{% endif %}>Все</option>
+              <option value="new" {% if selected_status == "new" %}selected{% endif %}>Новый</option>
+              <option value="viewed" {% if selected_status == "viewed" %}selected{% endif %}>Просмотрено</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-1">
+            <label class="form-label small text-muted">Возраст от</label>
+            <input type="number" min="0" class="form-control rounded-4" name="age_min" value="{{ selected_age_min }}">
+          </div>
+          <div class="col-12 col-md-1">
+            <label class="form-label small text-muted">до</label>
+            <input type="number" min="0" class="form-control rounded-4" name="age_max" value="{{ selected_age_max }}">
           </div>
           <div class="col-12 col-md-4 d-flex align-items-end gap-2">
             <button type="submit" class="btn btn-primary rounded-4">Применить</button>
@@ -125,6 +141,12 @@
                     <td>
                       {% if session.risk_level == "risk" %}
                         <span class="badge text-bg-danger">Риск</span>
+                      {% elif session.risk_level == "high" %}
+                        <span class="badge text-bg-danger">Высокий</span>
+                      {% elif session.risk_level == "medium" %}
+                        <span class="badge text-bg-warning text-dark">Средний</span>
+                      {% elif session.risk_level == "low" %}
+                        <span class="badge text-bg-success">Низкий</span>
                       {% elif session.risk_level == "borderline" %}
                         <span class="badge text-bg-warning text-dark">Погранично</span>
                       {% elif session.risk_level == "normal" %}

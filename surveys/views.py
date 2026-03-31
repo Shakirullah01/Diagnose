@@ -1,8 +1,11 @@
 from math import ceil
+import json
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db import connection
 from django.db.models import Prefetch, Sum
+from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
@@ -10,6 +13,7 @@ from django.utils import timezone
 
 from children.models import ChildProfile
 from .kid_scoring import score_kid_session
+from .mchat_scoring import RISK_TEXTS, build_mchat_result, infer_answer_from_score, score_for_answer
 from .models import Answer, AnswerOption, Question, SpecialistNote, SurveySession, SurveyScaleOption, SurveyType
 from .rcdi_scoring import score_rcdi_session
 from .result_display import build_development_result_context
@@ -75,6 +79,19 @@ def _is_specialist(user) -> bool:
 
 def _is_parent(user) -> bool:
     return user.is_authenticated and getattr(user, "role", "") == "parent"
+
+
+def _survey_age_allowed(slug: str, age_months: float | None) -> tuple[bool, str]:
+    if age_months is None:
+        return False, "Не удалось определить возраст ребёнка."
+    age = float(age_months)
+    if slug == "kdi" and not (2 <= age <= 16):
+        return False, "Опрос KID доступен для возраста от 2 до 16 месяцев."
+    if slug == "rcdi" and not (14 <= age <= 42):
+        return False, "Опрос RCDI доступен для возраста от 14 до 42 месяцев."
+    if slug == "m-chat" and not (16 <= age <= 30):
+        return False, "Опрос M-CHAT доступен для возраста от 16 до 30 месяцев."
+    return True, ""
 
 
 def _ensure_questions_imported_from_legacy(slug: str) -> SurveyType | None:
@@ -205,6 +222,11 @@ def survey_start(request, slug: str):
             return redirect("parent_dashboard")
         try:
             child_profile = get_object_or_404(ChildProfile, pk=int(profile_id), parent=request.user)
+            age_val = child_profile.age_months_float()
+            ok, err_msg = _survey_age_allowed(slug, age_val)
+            if not ok:
+                messages.error(request, err_msg)
+                return redirect("parent_dashboard")
         except (ValueError, TypeError):
             return redirect("parent_dashboard")
 
@@ -266,6 +288,11 @@ def survey_page(request, slug: str):
             survey_session = SurveySession.objects.filter(
                 pk=sid, survey_type__slug=slug, completed_at__isnull=True
             ).select_related("survey_type").first()
+            if survey_session and survey_session.child_profile_id:
+                ok, err_msg = _survey_age_allowed(slug, survey_session.child_age_months)
+                if not ok:
+                    messages.error(request, err_msg)
+                    return redirect("parent_dashboard")
         except ValueError:
             pass
 
@@ -324,53 +351,100 @@ def survey_page(request, slug: str):
         base_qs.order_by("order", "id")
         .prefetch_related(Prefetch("answer_options", queryset=AnswerOption.objects.all()))[start:end]
     )
+    existing_answers = {}
+    if survey_session:
+        for ans in Answer.objects.filter(session=survey_session, question__in=questions).select_related("question"):
+            if slug == "m-chat":
+                existing_answers[ans.question_id] = infer_answer_from_score(ans.question.order, ans.score)
+            elif ans.selected_scale_option_id:
+                existing_answers[ans.question_id] = str(ans.selected_scale_option_id)
+            elif ans.selected_option_id:
+                existing_answers[ans.question_id] = str(ans.selected_option_id)
 
     # POST: save answers for this page; then redirect to next page or result
     if request.method == "POST" and survey_session and survey_type:
         scale_option_ids = {o.pk: o for o in SurveyScaleOption.objects.filter(survey_type=survey_type)}
+        missing_questions = []
         for q in questions:
             key = f"q_{q.id}"
-            opt_id = request.POST.get(key)
-            if not opt_id:
-                continue
-            try:
-                opt_id = int(opt_id)
-            except (ValueError, TypeError):
-                continue
-            scale_opt = scale_option_ids.get(opt_id)
-            if not scale_opt:
-                continue
-            ans, _ = Answer.objects.update_or_create(
-                session=survey_session,
-                question=q,
-                defaults={
-                    "selected_scale_option": scale_opt,
-                    "score": scale_opt.score,
-                },
-            )
+            if slug == "m-chat":
+                answer_value = request.POST.get(key)
+                if not answer_value:
+                    missing_questions.append(q.order)
+                    continue
+                score = score_for_answer(q.order, answer_value)
+                Answer.objects.update_or_create(
+                    session=survey_session,
+                    question=q,
+                    defaults={
+                        "selected_option": None,
+                        "selected_scale_option": None,
+                        "score": float(score),
+                    },
+                )
+            else:
+                opt_id = request.POST.get(key)
+                if not opt_id:
+                    missing_questions.append(q.order)
+                    continue
+                try:
+                    opt_id = int(opt_id)
+                except (ValueError, TypeError):
+                    continue
+                scale_opt = scale_option_ids.get(opt_id)
+                if not scale_opt:
+                    continue
+                Answer.objects.update_or_create(
+                    session=survey_session,
+                    question=q,
+                    defaults={
+                        "selected_scale_option": scale_opt,
+                        "score": scale_opt.score,
+                    },
+                )
+        if missing_questions:
+            messages.error(request, "Ответьте на все вопросы на странице перед продолжением.")
+            return redirect(reverse("survey_page", args=[slug]) + f"?session_id={survey_session.pk}&page={page}")
         if page < total_pages:
             url = reverse("survey_page", args=[slug]) + f"?session_id={survey_session.pk}&page={page + 1}"
             return redirect(url)
         # Last page: compute total and result
         total_score = Answer.objects.filter(session=survey_session).aggregate(s=Sum("score"))["s"] or 0
+        answered_total = Answer.objects.filter(session=survey_session).count()
+        if answered_total <= 0:
+            messages.error(request, "Нельзя завершить пустую анкету.")
+            return redirect(reverse("survey_page", args=[slug]) + f"?session_id={survey_session.pk}&page={page}")
+        if answered_total < total:
+            messages.error(request, "Анкета заполнена не полностью. Проверьте, что все вопросы отвечены.")
+            return redirect(reverse("survey_page", args=[slug]) + f"?session_id={survey_session.pk}&page=1")
         survey_session.completed_at = timezone.now()
         answers_for_score = list(
             Answer.objects.filter(session=survey_session).select_related("question")
         )
         if slug == "kdi":
             survey_session.total_score = float(total_score)
+            survey_session.risk_level = None
             pack = score_kid_session(survey_session, answers_for_score)
             survey_session.per_category_scores = pack["per_category_scores"]
             survey_session.per_category_status = pack["per_category_status"]
             survey_session.result_text = pack["final_conclusion"]
         elif slug == "rcdi":
             survey_session.total_score = float(total_score)
+            survey_session.risk_level = None
             pack = score_rcdi_session(survey_session, answers_for_score)
             survey_session.per_category_scores = pack["per_category_scores"]
             survey_session.per_category_status = pack["per_category_status"]
             survey_session.result_text = pack["final_conclusion"]
+        elif slug == "m-chat":
+            survey_session.total_score = float(total_score)
+            survey_session.per_category_scores = {"failed_questions": int(total_score)}
+            survey_session.per_category_status = None
+            mchat_result = build_mchat_result(total_score)
+            survey_session.risk_level = mchat_result["risk_level"]
+            survey_session.result_text = mchat_result["result_text"]
         else:
             survey_session.total_score = float(total_score) if slug in ("ezhs", "m-chat") else None
+            survey_session.risk_level = None
             survey_session.per_category_scores = None
             survey_session.per_category_status = None
             if slug == "m-chat":
@@ -378,7 +452,7 @@ def survey_page(request, slug: str):
             else:
                 survey_session.result_text = "Опрос завершён."
         survey_session.save(
-            update_fields=["completed_at", "result_text", "total_score", "per_category_scores", "per_category_status"]
+            update_fields=["completed_at", "result_text", "total_score", "risk_level", "per_category_scores", "per_category_status"]
         )
         return redirect("survey_result", slug=slug, session_id=survey_session.pk)
 
@@ -402,6 +476,8 @@ def survey_page(request, slug: str):
         "last_index": last_index,
         "age_months": age_months,
         "age_error": age_error,
+        "existing_answers": existing_answers,
+        "existing_answers_json": json.dumps(existing_answers),
     }
     return render(request, "surveys/survey_page.html", context)
 
@@ -416,6 +492,14 @@ def survey_result(request, slug: str, session_id: int):
         survey_type__slug=slug,
         completed_at__isnull=False,
     )
+    if request.user.is_authenticated and not _is_specialist(request.user):
+        owner_ok = False
+        if session.user_id and session.user_id == request.user.id:
+            owner_ok = True
+        if session.child_profile_id and session.child_profile and session.child_profile.parent_id == request.user.id:
+            owner_ok = True
+        if not owner_ok:
+            return HttpResponseForbidden("Доступ запрещён.")
     if request.method == "POST" and request.POST.get("consent") == "1":
         session.consent_to_send = True
         session.save(update_fields=["consent_to_send"])
@@ -427,6 +511,30 @@ def survey_result(request, slug: str, session_id: int):
         "session": session,
     }
     context.update(build_development_result_context(session, slug))
+    if slug == "m-chat":
+        failed_questions = int(session.total_score or 0)
+        risk_level_text = RISK_TEXTS.get(session.risk_level or "", "")
+        failed_answers = []
+        for ans in session.answers.select_related("question").order_by("question__order"):
+            if int(ans.score or 0) == 1:
+                failed_answers.append(
+                    {
+                        "order": ans.question.order,
+                        "text": ans.question.text,
+                    }
+                )
+        context.update(
+            {
+                "mchat_failed_questions": failed_questions,
+                "mchat_risk_level_text": risk_level_text,
+                "mchat_failed_answers": failed_answers,
+            }
+        )
+    if session.notes.exists():
+        latest_note = session.notes.first()
+    else:
+        latest_note = None
+    context["latest_specialist_note"] = latest_note
     return render(request, "surveys/survey_result.html", context)
 
 
@@ -444,19 +552,43 @@ def specialist_dashboard(request):
     )
     survey_filter = (request.GET.get("survey") or "").strip()
     risk_filter = (request.GET.get("risk") or "").strip()
+    status_filter = (request.GET.get("status") or "").strip()
+    age_min = (request.GET.get("age_min") or "").strip()
+    age_max = (request.GET.get("age_max") or "").strip()
 
     if survey_filter:
         sessions_qs = sessions_qs.filter(survey_type__slug=survey_filter)
+    if status_filter:
+        sessions_qs = sessions_qs.filter(status=status_filter)
+    if age_min.isdigit():
+        sessions_qs = sessions_qs.filter(child_age_months__gte=float(age_min))
+    if age_max.isdigit():
+        sessions_qs = sessions_qs.filter(child_age_months__lte=float(age_max))
 
     sessions = list(sessions_qs)
     if risk_filter == "risk":
-        sessions = [s for s in sessions if (s.per_category_status or {}).values() and "зона риска" in (s.per_category_status or {}).values()]
+        sessions = [
+            s for s in sessions
+            if (s.survey_type.slug == "m-chat" and s.risk_level == "high")
+            or ("зона риска" in (s.per_category_status or {}).values())
+        ]
     elif risk_filter == "borderline":
-        sessions = [s for s in sessions if "пограничное состояние" in (s.per_category_status or {}).values()]
+        sessions = [
+            s for s in sessions
+            if (s.survey_type.slug == "m-chat" and s.risk_level == "medium")
+            or ("пограничное состояние" in (s.per_category_status or {}).values())
+        ]
     elif risk_filter == "normal":
-        sessions = [s for s in sessions if s.per_category_status and all(v == "норма" for v in (s.per_category_status or {}).values())]
+        sessions = [
+            s for s in sessions
+            if (s.survey_type.slug == "m-chat" and s.risk_level == "low")
+            or (s.per_category_status and all(v == "норма" for v in (s.per_category_status or {}).values()))
+        ]
 
     for s in sessions:
+        if s.survey_type.slug == "m-chat" and s.risk_level:
+            s.risk_level = s.risk_level
+            continue
         statuses = list((s.per_category_status or {}).values())
         if "зона риска" in statuses:
             s.risk_level = "risk"
@@ -478,6 +610,9 @@ def specialist_dashboard(request):
         "pending_cases": pending_cases,
         "selected_survey": survey_filter,
         "selected_risk": risk_filter,
+        "selected_status": status_filter,
+        "selected_age_min": age_min,
+        "selected_age_max": age_max,
     }
     return render(request, "specialist/dashboard.html", context)
 
@@ -517,6 +652,17 @@ def specialist_case_detail(request, pk: int):
         return redirect("specialist_case_detail", pk=session.pk)
 
     detail_rows = []
+    mchat_failed_answers = []
+    answer_rows = []
+    for ans in session.answers.all():
+        answer_text = "не выбран"
+        if ans.selected_scale_option:
+            answer_text = f"{ans.selected_scale_option.value} — {ans.selected_scale_option.text}"
+        elif ans.selected_option:
+            answer_text = ans.selected_option.text
+        elif session.survey_type.slug == "m-chat":
+            answer_text = "Да" if infer_answer_from_score(ans.question.order, ans.score) == "yes" else "Нет"
+        answer_rows.append({"answer": ans, "answer_text": answer_text})
     if session.survey_type.slug in ("kdi", "rcdi"):
         pack = build_development_result_context(session, session.survey_type.slug)
         for row in pack.get("result_rows", []):
@@ -529,10 +675,16 @@ def specialist_case_detail(request, pk: int):
                     "status": row.get("status", ""),
                 }
             )
+    elif session.survey_type.slug == "m-chat":
+        for ans in session.answers.select_related("question").order_by("question__order"):
+            if int(ans.score or 0) == 1:
+                mchat_failed_answers.append(ans)
 
     context = {
         "session": session,
         "detail_rows": detail_rows,
+        "mchat_failed_answers": mchat_failed_answers,
+        "answer_rows": answer_rows,
     }
     return render(request, "specialist/case_detail.html", context)
 

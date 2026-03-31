@@ -19,6 +19,65 @@
       <a href="{% url 'specialist_dashboard' %}" class="btn btn-outline-secondary rounded-4">Назад к списку</a>
     </div>
 
+    <div class="accordion mb-4" id="caseAccordion">
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="headingChild">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseChild" aria-expanded="true" aria-controls="collapseChild">
+            Информация о ребенке
+          </button>
+        </h2>
+        <div id="collapseChild" class="accordion-collapse collapse show" aria-labelledby="headingChild" data-bs-parent="#caseAccordion">
+          <div class="accordion-body">
+            {% if session.child_profile %}
+            <div class="row g-2 small">
+              <div class="col-md-6"><strong>Имя:</strong> {{ session.child_profile.child_name|default:"—" }}</div>
+              <div class="col-md-6"><strong>Дата рождения:</strong> {{ session.child_profile.birth_date|date:"d.m.Y"|default:"—" }}</div>
+              <div class="col-md-4"><strong>Возраст:</strong> {{ session.child_age_months|default:"—" }}{% if session.child_age_months %} мес.{% endif %}</div>
+              <div class="col-md-4"><strong>Пол:</strong> {{ session.child_profile.gender|default:"—" }}</div>
+              <div class="col-md-4"><strong>Неделя рождения:</strong> {{ session.child_profile.birth_week|default:"—" }}</div>
+              <div class="col-md-6"><strong>Состояние:</strong> {{ session.child_profile.get_child_health_display|default:"—" }}</div>
+              <div class="col-md-6"><strong>Судороги:</strong> {% if session.child_profile.seizures %}Да{% else %}Нет{% endif %}</div>
+            </div>
+            {% else %}
+              <div class="text-muted small">Детальная анкета ребёнка недоступна.</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="headingFamily">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFamily" aria-expanded="false" aria-controls="collapseFamily">
+            Родитель / семья / воспитание
+          </button>
+        </h2>
+        <div id="collapseFamily" class="accordion-collapse collapse" aria-labelledby="headingFamily" data-bs-parent="#caseAccordion">
+          <div class="accordion-body">
+            {% if session.child_profile %}
+            <div class="row g-2 small">
+              <div class="col-md-6"><strong>Email родителя:</strong> {{ session.user.email|default:"—" }}</div>
+              <div class="col-md-6"><strong>Кто заполнял:</strong> {{ session.child_profile.get_filled_by_display|default:"—" }}</div>
+              <div class="col-md-6"><strong>Телефон:</strong> {{ session.child_profile.phone|default:"—" }}</div>
+              <div class="col-md-6"><strong>Адрес:</strong> {{ session.child_profile.address|default:"—" }}</div>
+              <div class="col-md-6"><strong>Где воспитывается:</strong> {{ session.child_profile.get_where_child_grows_display|default:"—" }}</div>
+              <div class="col-md-6"><strong>Язык:</strong> {{ session.child_profile.get_family_language_display|default:"—" }}</div>
+              <div class="col-md-4"><strong>Детей в семье:</strong> {{ session.child_profile.children_count|default:"—" }}</div>
+              <div class="col-md-4"><strong>Основной воспитатель:</strong> {{ session.child_profile.get_main_caregiver_display|default:"—" }}</div>
+              <div class="col-md-4"><strong>Настроение воспитателя:</strong> {{ session.child_profile.get_caregiver_mood_display|default:"—" }}</div>
+              <div class="col-md-6"><strong>Ценности воспитателя:</strong> {{ session.child_profile.get_caregiver_values_display|default:"—" }}</div>
+              <div class="col-md-6"><strong>Экономическое положение:</strong> {{ session.child_profile.get_economic_status_display|default:"—" }}</div>
+              <div class="col-md-4"><strong>Возраст матери:</strong> {{ session.child_profile.mother_age|default:"—" }}</div>
+              <div class="col-md-4"><strong>Возраст отца:</strong> {{ session.child_profile.father_age|default:"—" }}</div>
+              <div class="col-md-4"><strong>Возраст воспитателя:</strong> {{ session.child_profile.caregiver_age|default:"—" }}</div>
+            </div>
+            {% else %}
+              <div class="text-muted small">Данные анкеты семьи недоступны.</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="row g-3 mb-4">
       <div class="col-12 col-md-4">
         <div class="card rounded-4 border-0 shadow-sm h-100">
@@ -143,6 +202,23 @@
     </div>
     {% endif %}
 
+    {% if session.survey_type.slug == "m-chat" %}
+    <div class="card rounded-4 border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h6 fw-semibold mb-3">M-CHAT: риск-ответы</h2>
+        {% if mchat_failed_answers %}
+          <ul class="mb-0">
+            {% for ans in mchat_failed_answers %}
+              <li>Вопрос {{ ans.question.order }}: {{ ans.question.text }}</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="text-muted small">Риск-ответы не обнаружены.</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     <div class="row g-3 mb-4">
       <div class="col-12 col-lg-6">
         <div class="card rounded-4 border-0 shadow-sm h-100">
@@ -205,21 +281,15 @@
           <div class="card-body">
             <h2 class="h6 fw-semibold mb-3">Ответы на вопросы</h2>
 
-            {% if session.answers.all %}
+            {% if answer_rows %}
               <div class="vstack gap-3">
-                {% for answer in session.answers.all %}
+                {% for row in answer_rows %}
                   <div class="border rounded-4 p-3">
                     <div class="small text-muted mb-1">Вопрос {{ forloop.counter }}</div>
-                    <div class="fw-semibold mb-2">{{ answer.question.text }}</div>
+                    <div class="fw-semibold mb-2">{{ row.answer.question.text }}</div>
                     <div class="small">
                       <span class="text-muted">Ответ:</span>
-                      {% if answer.selected_scale_option %}
-                        {{ answer.selected_scale_option.value }} — {{ answer.selected_scale_option.text }}
-                      {% elif answer.selected_option %}
-                        {{ answer.selected_option.text }}
-                      {% else %}
-                        не выбран
-                      {% endif %}
+                      {{ row.answer_text }}
                     </div>
                   </div>
                 {% endfor %}

@@ -8,7 +8,13 @@
       <div class="col-12 col-xl-10">
         <div class="card rounded-4 border-0 shadow-sm mb-4">
           <div class="card-body p-4 p-lg-5">
-            <h1 class="h3 fw-semibold mb-4">Результаты развития ребенка</h1>
+            <h1 class="h3 fw-semibold mb-4">
+              {% if survey_slug == "m-chat" %}
+                Результаты скрининга M-CHAT
+              {% else %}
+                Результаты развития ребенка
+              {% endif %}
+            </h1>
 
             <h2 class="h6 text-uppercase text-muted mb-3">Сводка</h2>
             <div class="row g-3 mb-4">
@@ -161,6 +167,43 @@
             {% endif %}
 
             {% else %}
+            {% if survey_slug == "m-chat" %}
+            <div class="row g-3 mb-4">
+              <div class="col-12 col-md-4">
+                <div class="p-3 rounded-4 bg-light h-100">
+                  <div class="text-muted small">Общий балл</div>
+                  <div class="fw-semibold">{{ session.total_score|default:"—" }}</div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="p-3 rounded-4 bg-light h-100">
+                  <div class="text-muted small">Уровень риска</div>
+                  <div class="fw-semibold">{{ mchat_risk_level_text|default:"—" }}</div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="p-3 rounded-4 bg-light h-100">
+                  <div class="text-muted small">Количество риск-ответов</div>
+                  <div class="fw-semibold">{{ mchat_failed_questions|default:"—" }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="alert alert-light border rounded-4 mb-4">
+              <p class="mb-0">{{ session.result_text|default:"Опрос завершён." }}</p>
+            </div>
+            {% if mchat_failed_answers %}
+            <div class="card rounded-4 border-0 shadow-sm mb-4">
+              <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-muted mb-3">Ответы с риском</h2>
+                <ul class="mb-0">
+                  {% for item in mchat_failed_answers %}
+                  <li><strong>Вопрос {{ item.order }}:</strong> {{ item.text }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+            {% endif %}
+            {% else %}
             <div class="row g-3 mb-4">
               <div class="col-12 col-md-6">
                 <div class="p-3 rounded-4 bg-light">
@@ -173,6 +216,19 @@
               <p class="mb-0">{{ session.result_text|default:"Опрос завершён." }}</p>
             </div>
             {% endif %}
+            {% endif %}
+
+            <div class="card rounded-4 border-0 shadow-sm mb-4">
+              <div class="card-body p-4">
+                <h2 class="h6 text-uppercase text-muted mb-3">Комментарий специалиста</h2>
+                {% if latest_specialist_note %}
+                  <p class="mb-2"><strong>Комментарий:</strong> {{ latest_specialist_note.comment|default:"—" }}</p>
+                  <p class="mb-0"><strong>Рекомендации специалиста:</strong> {{ latest_specialist_note.recommendation|default:"—" }}</p>
+                {% else %}
+                  <p class="mb-0 text-muted">Комментарий специалиста пока отсутствует</p>
+                {% endif %}
+              </div>
+            </div>
 
             {% if parent_explanation_block %}
             <div class="card rounded-4 border-0 shadow-sm mb-4">
