@@ -12,8 +12,11 @@ from django.urls import reverse
 from django.utils import timezone
 
 from children.models import ChildProfile
+from children.forms import ChildProfileForm
 from .kid_scoring import score_kid_session
 from .mchat_scoring import RISK_TEXTS, build_mchat_result, infer_answer_from_score, score_for_answer
+from .forms import GuestContactForm, GuestSurveyStartForm
+from .age_utils import calculate_age_months_float, gender_for_display
 from .models import Answer, AnswerOption, Question, SpecialistNote, SurveySession, SurveyScaleOption, SurveyType
 from .rcdi_scoring import score_rcdi_session
 from .result_display import build_development_result_context
@@ -358,9 +361,11 @@ def survey_start(request, slug: str):
     if not survey_type:
         return redirect("home")
 
-    # For parent flow: child profile is required for all surveys.
+    guest_mode = not request.user.is_authenticated
+
+    # Parent flow: child profile is required for all surveys.
     child_profile = None
-    if request.user.is_authenticated and slug in ("kdi", "rcdi", "m-chat", "ezhs"):
+    if not guest_mode and slug in ("kdi", "rcdi", "m-chat", "ezhs"):
         profile_id = request.GET.get("child_profile")
         if not profile_id:
             return redirect("parent_dashboard")
@@ -380,31 +385,56 @@ def survey_start(request, slug: str):
     age_error = None
 
     if request.method == "POST":
-        child_age_months = None
-        if child_profile:
-            child_age_months = child_profile.age_months_float()
-        if ask_age and child_age_months is None:
-            try:
-                raw = request.POST.get("child_age_months", "").strip()
-                child_age_months = float(int(raw))
-                low, high = ask_age
-                if int(child_age_months) < low or int(child_age_months) > high:
-                    age_error = f"Укажите возраст от {low} до {high} месяцев."
-            except (ValueError, TypeError):
-                age_error = "Введите целое число (возраст в месяцах)."
-        if age_error:
-            pass
+        if guest_mode:
+            guest_form = GuestSurveyStartForm(request.POST, survey_slug=slug)
+            if guest_form.is_valid():
+                birth_date = guest_form.cleaned_data["birth_date"]
+                gender = guest_form.cleaned_data.get("gender")
+                age_months = calculate_age_months_float(birth_date)
+                ok, err_msg = _survey_age_allowed(slug, age_months)
+                if not ok:
+                    guest_form.add_error(None, err_msg)
+                else:
+                    session = SurveySession.objects.create(
+                        user=None,
+                        child_profile=None,
+                        survey_type=survey_type,
+                        child_age_months=age_months,
+                        guest_birth_date=birth_date,
+                        guest_gender=gender,
+                    )
+                    url = reverse("survey_page", args=[slug]) + f"?session_id={session.pk}"
+                    return redirect(url)
         else:
-            session = SurveySession.objects.create(
-                user=request.user if request.user.is_authenticated else None,
-                child_profile=child_profile,
-                survey_type=survey_type,
-                child_age_months=child_age_months
-                if child_age_months is not None
-                else (child_profile.age_months_float() if child_profile else None),
-            )
-            url = reverse("survey_page", args=[slug]) + "?session_id=" + str(session.pk)
-            return redirect(url)
+            guest_form = None
+            child_age_months = None
+            if child_profile:
+                child_age_months = child_profile.age_months_float()
+            if ask_age and child_age_months is None:
+                try:
+                    raw = request.POST.get("child_age_months", "").strip()
+                    child_age_months = float(int(raw))
+                    low, high = ask_age
+                    if int(child_age_months) < low or int(child_age_months) > high:
+                        age_error = f"Укажите возраст от {low} до {high} месяцев."
+                except (ValueError, TypeError):
+                    age_error = "Введите целое число (возраст в месяцах)."
+            if age_error:
+                pass
+            else:
+                session = SurveySession.objects.create(
+                    user=request.user if request.user.is_authenticated else None,
+                    child_profile=child_profile,
+                    survey_type=survey_type,
+                    child_age_months=child_age_months
+                    if child_age_months is not None
+                    else (child_profile.age_months_float() if child_profile else None),
+                )
+                url = reverse("survey_page", args=[slug]) + "?session_id=" + str(session.pk)
+                return redirect(url)
+
+    else:
+        guest_form = GuestSurveyStartForm(survey_slug=slug) if guest_mode else None
 
     context = {
         "survey_slug": slug,
@@ -414,6 +444,9 @@ def survey_start(request, slug: str):
         "ask_age": ask_age,
         "age_error": age_error,
         "child_profile": child_profile,
+        "guest_mode": guest_mode,
+        "guest_form": guest_form,
+        "guest_gender_required": slug == "rcdi",
     }
     return render(request, "surveys/survey_start.html", context)
 
@@ -430,11 +463,13 @@ def survey_page(request, slug: str):
             survey_session = SurveySession.objects.filter(
                 pk=sid, survey_type__slug=slug, completed_at__isnull=True
             ).select_related("survey_type", "child_profile").first()
-            if survey_session and survey_session.child_profile_id:
+            if survey_session:
                 ok, err_msg = _survey_age_allowed(slug, survey_session.child_age_months)
                 if not ok:
                     messages.error(request, err_msg)
-                    return redirect("parent_dashboard")
+                    if request.user.is_authenticated:
+                        return redirect("parent_dashboard")
+                    return redirect(reverse("survey_start", args=[slug]))
         except ValueError:
             pass
 
@@ -442,7 +477,7 @@ def survey_page(request, slug: str):
     # затем работаем через обычные Django-модели.
     survey_type = _ensure_questions_imported_from_legacy(slug)
 
-    age_months: int | None = int(survey_session.child_age_months) if (
+    age_months: float | None = float(survey_session.child_age_months) if (
         survey_session and survey_session.child_age_months is not None
     ) else None
     age_error: str | None = None
@@ -693,13 +728,20 @@ def survey_page(request, slug: str):
         last_index = shown_until
 
     child_summary = None
-    if survey_session and survey_session.child_profile:
-        cp = survey_session.child_profile
-        child_summary = {
-            "name": cp.child_name,
-            "age_months": survey_session.child_age_months,
-            "gender": cp.gender,
-        }
+    if survey_session:
+        if survey_session.child_profile:
+            cp = survey_session.child_profile
+            child_summary = {
+                "name": cp.child_name,
+                "age_months": survey_session.child_age_months,
+                "gender": cp.gender,
+            }
+        else:
+            child_summary = {
+                "name": "Ребёнок",
+                "age_months": survey_session.child_age_months,
+                "gender": gender_for_display(survey_session.guest_gender),
+            }
 
     context = {
         "survey_slug": slug,
@@ -746,6 +788,17 @@ def survey_result(request, slug: str, session_id: int):
         return redirect(reverse("survey_page", args=[slug]) + f"?session_id={session.pk}")
     if request.method == "POST":
         if request.POST.get("consent") == "1":
+            # Guest: не позволяем “мгновенно” отправить специалисту без анкеты/контактов.
+            if session.user_id is None:
+                has_child = bool(session.guest_child_profile_data)
+                has_contact = bool(session.guest_contact_data)
+                if not (has_child and has_contact):
+                    messages.info(
+                        request,
+                        "Чтобы отправить результаты специалисту, необходимо заполнить анкету ребёнка и контактные данные.",
+                    )
+                    return redirect(reverse("guest_specialist_submit", args=[slug, session.pk]))
+
             session.consent_to_send = True
             session.save(update_fields=["consent_to_send"])
             return redirect("survey_result", slug=slug, session_id=session_id)
@@ -780,6 +833,9 @@ def survey_result(request, slug: str, session_id: int):
         "survey_slug": slug,
         "survey_title": SURVEY_LABELS.get(slug, slug.upper()),
         "session": session,
+        "guest_mode": session.user_id is None,
+        "guest_has_child_anketa": bool(session.guest_child_profile_data),
+        "guest_has_contact": bool(session.guest_contact_data),
     }
     context.update(build_development_result_context(session, slug))
     if slug == "ezhs":
@@ -834,6 +890,88 @@ def survey_result(request, slug: str, session_id: int):
         latest_note = None
     context["latest_specialist_note"] = latest_note
     return render(request, "surveys/survey_result.html", context)
+
+
+def guest_specialist_submit(request, slug: str, session_id: int):
+    """
+    Guest-only: форма анкеты ребёнка + контакты, после успешной отправки
+    выставляем `consent_to_send=True`, чтобы специалист увидел кейс.
+    """
+    if _is_specialist(request.user):
+        return redirect("specialist_dashboard")
+
+    session = get_object_or_404(
+        SurveySession.objects.select_related("survey_type"),
+        pk=session_id,
+        survey_type__slug=slug,
+    )
+
+    if session.user_id is not None:
+        # Встроенная логика проекта ожидает отдельный кабинет для родителей.
+        return HttpResponseForbidden("Доступ запрещён.")
+
+    if session.completed_at is None:
+        messages.info(request, "Сначала завершите опрос, чтобы перейти к отправке специалисту.")
+        return redirect(reverse("survey_page", args=[slug]) + f"?session_id={session.pk}")
+
+    if request.method == "POST":
+        child_form = ChildProfileForm(request.POST)
+        contact_form = GuestContactForm(request.POST)
+
+        if child_form.is_valid() and contact_form.is_valid():
+            cd = child_form.cleaned_data
+
+            gender = cd.get("gender")  # male/female
+            seizures = bool(cd.get("seizures"))
+            birth_date = cd.get("birth_date")
+
+            # Сохраняем "как для специалиста": человекочитаемые поля + сериализуем даты.
+            guest_child_data = dict(cd)
+            if birth_date:
+                guest_child_data["birth_date"] = birth_date.isoformat()
+            guest_child_data["seizures"] = seizures
+            guest_child_data["gender"] = "Мужской" if gender == "male" else "Женский"
+
+            session.guest_child_profile_data = guest_child_data
+            session.guest_contact_data = contact_form.cleaned_data
+
+            # Обновляем агрегированные guest-поля (используются для RCDI нормы).
+            session.guest_birth_date = birth_date
+            session.guest_gender = gender
+
+            session.consent_to_send = True
+            session.save(
+                update_fields=[
+                    "guest_child_profile_data",
+                    "guest_contact_data",
+                    "guest_birth_date",
+                    "guest_gender",
+                    "consent_to_send",
+                ]
+            )
+            messages.success(request, "Спасибо! Мы сохранили анкету и контакты и отправили данные специалисту.")
+            return redirect("survey_result", slug=slug, session_id=session.pk)
+    else:
+        initial = {}
+        if session.guest_birth_date:
+            initial["birth_date"] = session.guest_birth_date
+        if session.guest_gender:
+            initial["gender"] = session.guest_gender
+        child_form = ChildProfileForm(initial=initial)
+
+        contact_initial = session.guest_contact_data if isinstance(session.guest_contact_data, dict) else {}
+        contact_form = GuestContactForm(initial=contact_initial)
+
+    return render(
+        request,
+        "surveys/guest_specialist_submit.html",
+        {
+            "survey_slug": slug,
+            "session": session,
+            "child_form": child_form,
+            "contact_form": contact_form,
+        },
+    )
 
 
 def _specialist_required(user) -> bool:

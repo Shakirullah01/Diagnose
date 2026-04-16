@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Анкета и контакты для специалиста{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-10">
+        <div class="card rounded-4 border-0 shadow-sm">
+          <div class="card-body p-4 p-lg-5">
+            <h1 class="h3 fw-semibold mb-3">Анкета ребёнка и контакты для специалиста</h1>
+            <p class="text-muted mb-4">
+              Чтобы специалист мог изучить результаты, заполните анкету ребёнка и укажите, как с вами связаться.
+            </p>
+
+            <form method="post">
+              {% csrf_token %}
+
+              <div class="card rounded-4 border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
+                  <h2 class="h5 fw-semibold mb-3">1. Анкета ребёнка</h2>
+                  {% if child_form.non_field_errors %}
+                    <div class="alert alert-danger rounded-4 mb-3">
+                      {% for err in child_form.non_field_errors %}
+                        <div>{{ err }}</div>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+
+                  {% for field in child_form.visible_fields %}
+                    <div class="mb-3">
+                      <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                      {{ field }}
+                      {% if field.errors %}
+                        <div class="text-danger small mt-1">{{ field.errors }}</div>
+                      {% endif %}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="card rounded-4 border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
+                  <h2 class="h5 fw-semibold mb-3">2. Контакты</h2>
+                  {% if contact_form.non_field_errors %}
+                    <div class="alert alert-danger rounded-4 mb-3">
+                      {% for err in contact_form.non_field_errors %}
+                        <div>{{ err }}</div>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+
+                  {% for field in contact_form.visible_fields %}
+                    <div class="mb-3">
+                      <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                      {{ field }}
+                      {% if field.errors %}
+                        <div class="text-danger small mt-1">{{ field.errors }}</div>
+                      {% endif %}
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="d-flex flex-column flex-md-row gap-2">
+                <button type="submit" class="btn btn-primary btn-lg rounded-4 flex-grow-1">
+                  Отправить специалисту
+                </button>
+                <a href="{% url 'survey_result' survey_slug session.pk %}" class="btn btn-outline-secondary btn-lg rounded-4">
+                  Вернуться к результатам
+                </a>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+

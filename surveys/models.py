@@ -141,6 +141,12 @@ class SurveySession(models.Model):
     result_text = models.TextField(blank=True, verbose_name="Заключение")
     consent_to_send = models.BooleanField(default=False, verbose_name="Согласие на отправку специалисту")
 
+    # Guest flow (no account required before seeing results)
+    guest_birth_date = models.DateField(null=True, blank=True, verbose_name="Дата рождения (гость)")
+    guest_gender = models.CharField(max_length=10, null=True, blank=True, verbose_name="Пол (гость)")
+    guest_child_profile_data = models.JSONField(null=True, blank=True, verbose_name="Анкета ребёнка (гость)")
+    guest_contact_data = models.JSONField(null=True, blank=True, verbose_name="Контакты (гость)")
+
     STATUS_NEW = "new"
     STATUS_VIEWED = "viewed"
     STATUS_CHOICES = [

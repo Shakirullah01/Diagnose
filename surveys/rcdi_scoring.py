@@ -41,6 +41,8 @@ def score_rcdi_session(session: SurveySession, answers: list[Answer]) -> dict:
     sex = "M"
     if session.child_profile_id:
         sex = normalize_child_sex(session.child_profile.gender)
+    elif getattr(session, "guest_gender", None):
+        sex = normalize_child_sex(session.guest_gender)
 
     sums: dict[str, float] = defaultdict(float)
     for ans in answers:

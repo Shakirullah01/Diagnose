@@ -10,18 +10,58 @@
           <div class="card-body p-4 p-lg-5">
             <h1 class="h3 fw-semibold mb-4">{{ instruction_title }}</h1>
 
-            <div class="survey-instruction-body mb-4">
-              {% for paragraph in instruction_body %}
-                <p class="mb-3">{{ paragraph }}</p>
-              {% endfor %}
-            </div>
+            {% if not guest_mode %}
+              <div class="survey-instruction-body mb-4">
+                {% for paragraph in instruction_body %}
+                  <p class="mb-3">{{ paragraph }}</p>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="mb-4 text-muted">
+                Введите данные ребёнка, чтобы мы точно подобрали вопросы и рассчёт по возрасту.
+              </div>
+            {% endif %}
 
             <form method="post" class="mt-4" action="{% if child_profile %}?child_profile={{ child_profile.pk }}{% endif %}">
               {% csrf_token %}
               {% if child_profile %}
                 <p class="text-muted small mb-3">Ребёнок: <strong>{{ child_profile.child_name }}</strong>, дата рождения {{ child_profile.birth_date|date:"d.m.Y" }}.</p>
               {% endif %}
-              {% if ask_age and not child_profile %}
+              {% if guest_mode %}
+                <div class="mb-4">
+                  {% if guest_form.non_field_errors %}
+                    <div class="alert alert-danger rounded-4" role="alert">
+                      {% for err in guest_form.non_field_errors %}
+                        <div>{{ err }}</div>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold" for="{{ guest_form.birth_date.id_for_label }}">Дата рождения ребёнка</label>
+                    {{ guest_form.birth_date }}
+                    {% if guest_form.birth_date.errors %}
+                      <div class="text-danger small mt-1">{{ guest_form.birth_date.errors }}</div>
+                    {% endif %}
+                  </div>
+
+                  {% if guest_gender_required %}
+                    <div class="mb-3">
+                      <label class="form-label fw-semibold">{{ guest_form.gender.label }}</label>
+                      <div class="radio-list">
+                        {% for choice in guest_form.gender %}
+                          <label class="radio-row" for="{{ choice.id_for_label }}">
+                            {{ choice.tag }} <span>{{ choice.choice_label }}</span>
+                          </label>
+                        {% endfor %}
+                      </div>
+                      {% if guest_form.gender.errors %}
+                        <div class="text-danger small mt-1">{{ guest_form.gender.errors }}</div>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                </div>
+              {% elif ask_age and not child_profile %}
                 <div class="mb-4">
                   <label for="child_age_months" class="form-label fw-semibold">Возраст ребёнка (месяцев)</label>
                   <input
@@ -42,7 +82,7 @@
               {% endif %}
 
               <button type="submit" class="btn btn-primary btn-lg rounded-4 w-100">
-                Начать опрос
+                {% if guest_mode %}Продолжить к опросу{% else %}Начать опрос{% endif %}
               </button>
             </form>
 
@@ -54,4 +94,24 @@
       </div>
     </div>
   </div>
+
+  <style>
+    .radio-list {
+      display: grid;
+      gap: .5rem;
+    }
+    .radio-row {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .5rem .75rem;
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: .75rem;
+      cursor: pointer;
+    }
+    .radio-row:hover {
+      border-color: rgba(47,111,237,.45);
+      background: rgba(47,111,237,.04);
+    }
+  </style>
 {% endblock %}

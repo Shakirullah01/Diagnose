@@ -18,11 +18,17 @@
 
             <h2 class="h6 text-uppercase text-muted mb-3">Сводка</h2>
             <div class="row g-3 mb-4">
-              {% if session.child_profile %}
+              {% if session.child_profile or session.guest_child_profile_data %}
               <div class="col-6 col-md-4">
                 <div class="p-3 rounded-4 bg-light h-100">
                   <div class="text-muted small">Имя ребенка</div>
-                  <div class="fw-semibold">{{ session.child_profile.child_name }}</div>
+                  <div class="fw-semibold">
+                    {% if session.child_profile %}
+                      {{ session.child_profile.child_name }}
+                    {% else %}
+                      {{ session.guest_child_profile_data.child_name|default:"—" }}
+                    {% endif %}
+                  </div>
                 </div>
               </div>
               {% endif %}
@@ -46,6 +52,8 @@
                   <div class="fw-semibold">
                     {% if session.child_profile and session.child_profile.gender %}
                       {{ session.child_profile.gender }}
+                    {% elif session.guest_gender %}
+                      {% if session.guest_gender == 'male' %}Мужской{% elif session.guest_gender == 'female' %}Женский{% else %}—{% endif %}
                     {% else %}
                       —
                     {% endif %}
@@ -340,16 +348,42 @@
             {% endif %}
 
             {% if not session.consent_to_send %}
-              <form method="post" class="mb-3">
-                {% csrf_token %}
-                <input type="hidden" name="consent" value="1">
-                <button type="submit" class="btn btn-primary btn-lg rounded-4 w-100">
-                  Отправить результаты специалисту
-                </button>
-              </form>
-              <p class="text-muted small mb-0">
-                Если вы согласны, результаты будут переданы специалисту для ознакомления и возможных рекомендаций.
-              </p>
+              {% if guest_mode %}
+                <div class="mb-3">
+                  {% if guest_has_child_anketa and guest_has_contact %}
+                    <p class="text-muted small mb-2">
+                      Анкета и контакты заполнены. Вы можете отправить данные специалисту.
+                    </p>
+                    <a
+                      class="btn btn-primary btn-lg rounded-4 w-100 text-center text-decoration-none d-inline-block"
+                      href="{% url 'guest_specialist_submit' survey_slug session.id %}"
+                    >
+                      Отправить специалисту
+                    </a>
+                  {% else %}
+                    <p class="text-muted small mb-2">
+                      Чтобы отправить результаты специалисту, необходимо заполнить анкету ребёнка и контактные данные.
+                    </p>
+                    <a
+                      class="btn btn-primary btn-lg rounded-4 w-100 text-center text-decoration-none d-inline-block"
+                      href="{% url 'guest_specialist_submit' survey_slug session.id %}"
+                    >
+                      Заполнить анкету и контакты
+                    </a>
+                  {% endif %}
+                </div>
+              {% else %}
+                <form method="post" class="mb-3">
+                  {% csrf_token %}
+                  <input type="hidden" name="consent" value="1">
+                  <button type="submit" class="btn btn-primary btn-lg rounded-4 w-100">
+                    Отправить результаты специалисту
+                  </button>
+                </form>
+                <p class="text-muted small mb-0">
+                  Если вы согласны, результаты будут переданы специалисту для ознакомления и возможных рекомендаций.
+                </p>
+              {% endif %}
             {% else %}
               <div class="alert alert-success rounded-4">
                 Вы уже отправили результаты специалисту. Они будут доступны в панели специалиста.
