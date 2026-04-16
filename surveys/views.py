@@ -17,6 +17,8 @@ from .mchat_scoring import RISK_TEXTS, build_mchat_result, infer_answer_from_sco
 from .models import Answer, AnswerOption, Question, SpecialistNote, SurveySession, SurveyScaleOption, SurveyType
 from .rcdi_scoring import score_rcdi_session
 from .result_display import build_development_result_context
+from .ejs_result import build_ejs_result
+from .ejs_text import is_ezhs_legacy_change_question, is_ezhs_satisfaction_question
 
 
 SURVEY_LABELS: dict[str, str] = {
@@ -59,10 +61,33 @@ SURVEY_INSTRUCTIONS: dict[str, dict] = {
         "ask_age": (16, 30),
     },
     "ezhs": {
-        "title": "Опросник ЕЖС (ежедневные жизненные ситуации)",
+        "title": "Опрос о повседневной жизни ребёнка (ЕЖС)",
         "body": [
-            "Данный опросник касается повседневных ситуаций и поведения ребёнка. Укажите возраст ребёнка в месяцах на следующем шаге — будут показаны только подходящие по возрасту вопросы.",
-            "Отвечайте честно и не пропускайте вопросы.",
+            "Этот опрос поможет понять, как ваш ребёнок ведёт себя в обычных жизненных ситуациях: во время сна, еды, игры, прогулок и других повседневных дел.",
+            "Здесь нет правильных или неправильных ответов — важно выбрать тот вариант, который лучше всего подходит вашему ребёнку.",
+            "Как отвечать на вопросы:",
+            "Для каждого утверждения выберите один вариант:",
+            "• Часто — ребёнок делает это регулярно",
+            "• Редко — делает иногда",
+            "• Ещё не делает — пока не умеет или не делает",
+            "• Уже не делает — раньше делал, но сейчас перерос",
+            "Отвечайте, опираясь на поведение ребёнка в последнее время.",
+            "Важно знать:",
+            "• Вопросы уже подобраны с учётом возраста вашего ребёнка.",
+            "• Некоторые навыки могут ещё не появиться — это нормально.",
+            "• Опрос нужен для общего понимания развития, а не для постановки диагноза.",
+            "Что вы получите в конце:",
+            "После прохождения вы увидите:",
+            "• разбор по разным сферам жизни ребёнка",
+            "• где всё развивается нормально",
+            "• где стоит обратить внимание",
+            "• рекомендации, что делать дальше",
+            "При необходимости вы сможете отправить результат специалисту.",
+            "Перед началом:",
+            "• Постарайтесь отвечать честно и внимательно.",
+            "• Не пропускайте вопросы.",
+            "• Опрос займёт немного времени.",
+            "Нажмите «Начать опрос», чтобы перейти к вопросам.",
         ],
         "ask_age": None,
     },
@@ -91,7 +116,125 @@ def _survey_age_allowed(slug: str, age_months: float | None) -> tuple[bool, str]
         return False, "Опрос RCDI доступен для возраста от 14 до 42 месяцев."
     if slug == "m-chat" and not (16 <= age <= 30):
         return False, "Опрос M-CHAT доступен для возраста от 16 до 30 месяцев."
+    if slug == "ezhs" and not (0 <= age <= 36):
+        return False, "Опрос ЕЖС доступен для возраста от 0 до 36 месяцев."
     return True, ""
+
+
+def _parse_ezhs_min_age(age_str: str | None) -> int | None:
+    if not age_str:
+        return None
+    token = str(age_str).strip()
+    if not token:
+        return None
+    if "-" in token:
+        token = token.split("-", 1)[0].strip()
+    try:
+        return int(token)
+    except ValueError:
+        return None
+
+
+def _ensure_ezhs_answer_options(question: Question):
+    if is_ezhs_satisfaction_question(question.text):
+        options = [(str(i), str(i)) for i in range(1, 6)]
+    elif is_ezhs_legacy_change_question(question.text):
+        # Не показываем в опросе; опции не трогаем агрессивно (PROTECT).
+        return
+    else:
+        options = [
+            ("Еще не делает", "not_yet"),
+            ("Редко", "rare"),
+            ("Часто", "often"),
+            ("Уже не делает", "not_anymore"),
+        ]
+    # Исправляем legacy-варианты (Да/Нет/Иногда) на единый набор ЕЖС
+    # без удаления (Answer.selected_option использует PROTECT).
+    for i, (text, value) in enumerate(options, start=1):
+        opt = question.answer_options.filter(order=i).first()
+        if opt:
+            changed = False
+            if opt.text != text:
+                opt.text = text
+                changed = True
+            if (opt.value or "") != value:
+                opt.value = value
+                changed = True
+            if changed:
+                opt.save(update_fields=["text", "value"])
+        else:
+            AnswerOption.objects.create(
+                question=question,
+                text=text,
+                value=value,
+                order=i,
+            )
+
+
+def _sanitize_ezhs_topic_questions(questions: list[Question]) -> list[Question]:
+    """
+    Убираем дубли сервисных вопросов и не показываем пустые рутины,
+    в которых нет ни одного обычного (поведенческого) вопроса.
+    """
+    skill_questions = [
+        q
+        for q in questions
+        if not is_ezhs_satisfaction_question(q.text) and not is_ezhs_legacy_change_question(q.text)
+    ]
+    if not skill_questions:
+        return []
+
+    sanitized = list(skill_questions)
+    added_satisfaction = False
+    for q in questions:
+        if not is_ezhs_satisfaction_question(q.text):
+            continue
+        if added_satisfaction:
+            continue
+        added_satisfaction = True
+        sanitized.append(q)
+    return sorted(sanitized, key=lambda x: (x.order, x.id))
+
+
+def _ezhs_routine_question_counts(session: SurveySession) -> dict:
+    """Число обычных (поведенческих) вопросов по рутине с учётом возраста — для пустых рутин."""
+    if not session.survey_type_id:
+        return {}
+    base_qs = Question.objects.filter(survey_type_id=session.survey_type_id, is_active=True)
+    all_topics = []
+    seen = set()
+    for raw in base_qs.order_by("order", "id").values_list("category", flat=True):
+        label = (raw or "").strip() or "Без категории"
+        if label in seen:
+            continue
+        seen.add(label)
+        all_topics.append(label)
+
+    age = session.child_age_months
+    eligible_qs = base_qs
+    if age is not None:
+        eligible_qs = eligible_qs.filter(age_min_months__lte=age)
+
+    counts = {topic: 0 for topic in all_topics}
+    for q in eligible_qs.only("category", "text"):
+        if is_ezhs_satisfaction_question(q.text) or is_ezhs_legacy_change_question(q.text):
+            continue
+        label = (q.category or "").strip() or "Без категории"
+        counts[label] = counts.get(label, 0) + 1
+    return counts
+
+
+def _ordered_topics_for_ezhs(base_qs):
+    seen = set()
+    result = []
+    for raw in base_qs.order_by("order", "id").values_list("category", flat=True):
+        raw_topic = raw or ""
+        topic_key = raw_topic.strip() or "Без категории"
+        if topic_key in seen:
+            continue
+        seen.add(topic_key)
+        result.append({"raw": raw_topic, "label": topic_key})
+    return result
 
 
 def _ensure_questions_imported_from_legacy(slug: str) -> SurveyType | None:
@@ -108,9 +251,16 @@ def _ensure_questions_imported_from_legacy(slug: str) -> SurveyType | None:
         defaults={"name": SURVEY_LABELS.get(slug, slug.upper())},
     )
 
-    # Если вопросы уже загружены в нашу модель, ничего не делаем
-    if Question.objects.filter(survey_type=survey_type).exists():
+    # Если вопросы уже загружены в нашу модель, ничего не делаем.
+    if Question.objects.filter(survey_type=survey_type).exists() and slug != "ezhs":
         return survey_type
+    if slug == "ezhs":
+        ezhs_qs = Question.objects.filter(survey_type=survey_type)
+        # Не выполняем тяжелый update_or_create на каждый запрос, если данные уже готовы.
+        if ezhs_qs.exists() and not ezhs_qs.filter(category="").exists() and not ezhs_qs.filter(
+            age_min_months__isnull=True
+        ).exists():
+            return survey_type
 
     with connection.cursor() as cursor:
         try:
@@ -143,42 +293,22 @@ def _ensure_questions_imported_from_legacy(slug: str) -> SurveyType | None:
                     for (order, text) in rows
                 ]
             elif slug == "ezhs":
-                # ЕЖС: есть возрастной диапазон в текстовом поле age, например '5-24' или '0-36'
                 cursor.execute(
-                    "SELECT question_order, question, age FROM ejs_questions ORDER BY question_order"
+                    "SELECT question_order, question, age, topic FROM ejs_questions ORDER BY question_order"
                 )
                 rows = cursor.fetchall()
                 bulk = []
-                for order, text, age_str in rows:
-                    age_min = None
-                    age_max = None
-                    if age_str:
-                        part = str(age_str).strip()
-                        if "-" in part:
-                            a, b = part.split("-", 1)
-                            try:
-                                age_min = int(a)
-                            except ValueError:
-                                age_min = 0
-                            try:
-                                age_max = int(b)
-                            except ValueError:
-                                age_max = 36
-                        else:
-                            try:
-                                single = int(part)
-                            except ValueError:
-                                single = 0
-                            age_min = single
-                            age_max = single
+                for order, text, age_str, topic in rows:
+                    age_min = _parse_ezhs_min_age(age_str)
                     bulk.append(
                         Question(
                             survey_type=survey_type,
                             text=text,
                             order=order or 0,
+                            category=(topic or "").strip(),
                             is_active=True,
                             age_min_months=age_min,
-                            age_max_months=age_max,
+                            age_max_months=None,
                         )
                     )
             else:  # m-chat
@@ -199,7 +329,21 @@ def _ensure_questions_imported_from_legacy(slug: str) -> SurveyType | None:
             return survey_type
 
     if bulk:
-        Question.objects.bulk_create(bulk)
+        if slug == "ezhs":
+            for q in bulk:
+                Question.objects.update_or_create(
+                    survey_type=survey_type,
+                    order=q.order,
+                    text=q.text,
+                    defaults={
+                        "category": q.category,
+                        "is_active": True,
+                        "age_min_months": q.age_min_months,
+                        "age_max_months": None,
+                    },
+                )
+        else:
+            Question.objects.bulk_create(bulk)
 
     return survey_type
 
@@ -214,9 +358,9 @@ def survey_start(request, slug: str):
     if not survey_type:
         return redirect("home")
 
-    # For KID, RCDI, M-CHAT: logged-in parents must select a child profile (from dashboard)
+    # For parent flow: child profile is required for all surveys.
     child_profile = None
-    if request.user.is_authenticated and slug in ("kdi", "rcdi", "m-chat"):
+    if request.user.is_authenticated and slug in ("kdi", "rcdi", "m-chat", "ezhs"):
         profile_id = request.GET.get("child_profile")
         if not profile_id:
             return redirect("parent_dashboard")
@@ -251,8 +395,6 @@ def survey_start(request, slug: str):
         if age_error:
             pass
         else:
-            if slug == "ezhs":
-                return redirect("survey_page", slug=slug)
             session = SurveySession.objects.create(
                 user=request.user if request.user.is_authenticated else None,
                 child_profile=child_profile,
@@ -287,7 +429,7 @@ def survey_page(request, slug: str):
             sid = int(session_id_raw)
             survey_session = SurveySession.objects.filter(
                 pk=sid, survey_type__slug=slug, completed_at__isnull=True
-            ).select_related("survey_type").first()
+            ).select_related("survey_type", "child_profile").first()
             if survey_session and survey_session.child_profile_id:
                 ok, err_msg = _survey_age_allowed(slug, survey_session.child_age_months)
                 if not ok:
@@ -300,57 +442,78 @@ def survey_page(request, slug: str):
     # затем работаем через обычные Django-модели.
     survey_type = _ensure_questions_imported_from_legacy(slug)
 
-    age_months: int | None = None
+    age_months: int | None = int(survey_session.child_age_months) if (
+        survey_session and survey_session.child_age_months is not None
+    ) else None
     age_error: str | None = None
-
-    if slug == "ezhs":
-        age_param = (request.GET.get("age") or "").strip()
-        if age_param:
-            try:
-                age_val = int(age_param)
-                if age_val < 0 or age_val > 36:
-                    age_error = "Возраст должен быть от 0 до 36 месяцев."
-                else:
-                    age_months = age_val
-            except ValueError:
-                age_error = "Введите целое число месяцев."
 
     base_qs = Question.objects.filter(survey_type=survey_type, is_active=True) if survey_type else Question.objects.none()
     if survey_type and slug in ("kdi", "rcdi"):
         base_qs = base_qs.exclude(category="")
 
     if slug == "ezhs":
-        # Пока не введён корректный возраст — вопросы не показываем
-        if age_months is None or age_error:
+        if not survey_session:
+            messages.error(request, "Сначала начните опрос ЕЖС из карточки ребенка.")
+            return redirect("parent_dashboard")
+        if age_months is None:
+            age_error = "Не удалось определить возраст ребенка."
             base_qs = Question.objects.none()
         else:
-            base_qs = base_qs.filter(
-                age_min_months__lte=age_months,
-                age_max_months__gte=age_months,
-            )
+            base_qs = base_qs.filter(age_min_months__lte=age_months)
 
-    # Пагинация: максимум 20 вопросов на страницу
+    # Пагинация: для ЕЖС по рутинам, для остальных по 20 вопросов.
     try:
         page = int(request.GET.get("page", request.POST.get("page", "1")))
     except (ValueError, TypeError):
         page = 1
-    per_page = 20
-    total = base_qs.count()
-    total_pages = max(1, ceil(total / per_page)) if total else 1
-    page = min(max(page, 1), total_pages)
-
-    start = (page - 1) * per_page
-    end = start + per_page
+    routine_page_name = None
+    if slug == "ezhs":
+        all_topic_items = _ordered_topics_for_ezhs(base_qs)
+        topic_items = []
+        topic_sizes = []
+        for item in all_topic_items:
+            topic_qs = base_qs.filter(category=item["raw"]).order_by("order", "id")
+            sanitized_topic = _sanitize_ezhs_topic_questions(list(topic_qs))
+            if sanitized_topic:
+                topic_items.append(item)
+                topic_sizes.append(len(sanitized_topic))
+        total = sum(topic_sizes)
+        total_pages = max(1, len(topic_items)) if topic_items else 1
+        page = min(max(page, 1), total_pages)
+        topic_item = topic_items[page - 1] if topic_items else None
+        routine_page_name = topic_item["label"] if topic_item else None
+        routine_page_raw = topic_item["raw"] if topic_item else None
+        questions_qs = base_qs.filter(category=routine_page_raw).order_by("order", "id")
+        questions = _sanitize_ezhs_topic_questions(list(
+            questions_qs.prefetch_related(Prefetch("answer_options", queryset=AnswerOption.objects.all()))
+        ))
+        start = 0
+        end = len(questions)
+    else:
+        per_page = 20
+        total = base_qs.count()
+        total_pages = max(1, ceil(total / per_page)) if total else 1
+        page = min(max(page, 1), total_pages)
+        start = (page - 1) * per_page
+        end = start + per_page
+        questions = list(
+            base_qs.order_by("order", "id")
+            .prefetch_related(Prefetch("answer_options", queryset=AnswerOption.objects.all()))[start:end]
+        )
 
     # Scale options for KID/RCDI (1,2,3 with scores)
     scale_options = []
     if survey_type and slug in ("kdi", "rcdi"):
         scale_options = list(SurveyScaleOption.objects.filter(survey_type=survey_type).order_by("value"))
 
-    questions = (
-        base_qs.order_by("order", "id")
-        .prefetch_related(Prefetch("answer_options", queryset=AnswerOption.objects.all()))[start:end]
-    )
+    if slug == "ezhs":
+        for q in questions:
+            _ensure_ezhs_answer_options(q)
+            # В этой точке answer_options уже могли быть prefetched выше.
+            # Сбрасываем кеш, чтобы шаблон сразу увидел только что созданные/обновленные опции.
+            prefetched = getattr(q, "_prefetched_objects_cache", None)
+            if isinstance(prefetched, dict):
+                prefetched.pop("answer_options", None)
     existing_answers = {}
     if survey_session:
         for ans in Answer.objects.filter(session=survey_session, question__in=questions).select_related("question"):
@@ -382,6 +545,46 @@ def survey_page(request, slug: str):
                         "score": float(score),
                     },
                 )
+            elif slug == "ezhs":
+                opt_id = request.POST.get(key)
+                if not opt_id:
+                    missing_questions.append(q.order)
+                    continue
+                try:
+                    opt_id = int(opt_id)
+                except (ValueError, TypeError):
+                    missing_questions.append(q.order)
+                    continue
+                option = q.answer_options.filter(pk=opt_id).first()
+                if not option:
+                    missing_questions.append(q.order)
+                    continue
+                if is_ezhs_satisfaction_question(q.text):
+                    raw_val = (option.value or option.text or "").strip()
+                    if not raw_val.isdigit() or not (1 <= int(raw_val) <= 5):
+                        missing_questions.append(q.order)
+                        continue
+                    sat = float(int(raw_val))
+                    Answer.objects.update_or_create(
+                        session=survey_session,
+                        question=q,
+                        defaults={
+                            "selected_option": option,
+                            "selected_scale_option": None,
+                            "score": sat,
+                        },
+                    )
+                else:
+                    score_map = {"not_yet": 0.0, "rare": 1.0, "often": 2.0, "not_anymore": 3.0}
+                    Answer.objects.update_or_create(
+                        session=survey_session,
+                        question=q,
+                        defaults={
+                            "selected_option": option,
+                            "selected_scale_option": None,
+                            "score": score_map.get((option.value or "").lower(), 0.0),
+                        },
+                    )
             else:
                 opt_id = request.POST.get(key)
                 if not opt_id:
@@ -403,7 +606,9 @@ def survey_page(request, slug: str):
                     },
                 )
         if missing_questions:
-            messages.error(request, "Ответьте на все вопросы на странице перед продолжением.")
+            missed = ", ".join(str(n) for n in sorted(set(missing_questions))[:8])
+            suffix = f" (вопросы: {missed})" if missed else ""
+            messages.error(request, f"Ответьте на все вопросы на странице перед продолжением{suffix}.")
             return redirect(reverse("survey_page", args=[slug]) + f"?session_id={survey_session.pk}&page={page}")
         if page < total_pages:
             url = reverse("survey_page", args=[slug]) + f"?session_id={survey_session.pk}&page={page + 1}"
@@ -442,6 +647,25 @@ def survey_page(request, slug: str):
             mchat_result = build_mchat_result(total_score)
             survey_session.risk_level = mchat_result["risk_level"]
             survey_session.result_text = mchat_result["result_text"]
+        elif slug == "ezhs":
+            routine_counts = _ezhs_routine_question_counts(survey_session)
+            survey_session.total_score = None
+            survey_session.risk_level = None
+            survey_session.per_category_scores = None
+            survey_session.per_category_status = None
+            prior_disc = None
+            old_pack = survey_session.ejs_routine_analysis
+            if isinstance(old_pack, dict) and isinstance(old_pack.get("parent_discussion_requests"), dict):
+                prior_disc = old_pack["parent_discussion_requests"]
+            ezhs_pack = build_ejs_result(
+                answers_for_score,
+                routine_question_counts=routine_counts,
+                parent_discussion_requests=prior_disc,
+            )
+            survey_session.ejs_routine_analysis = ezhs_pack
+            survey_session.problematic_routines_count = int(ezhs_pack["problematic_routines_count"])
+            survey_session.recommended_specialist_consultation = int(ezhs_pack["problematic_routines_count"]) >= 2
+            survey_session.result_text = ezhs_pack["final_recommendation"]
         else:
             survey_session.total_score = float(total_score) if slug in ("ezhs", "m-chat") else None
             survey_session.risk_level = None
@@ -451,15 +675,31 @@ def survey_page(request, slug: str):
                 survey_session.result_text = "Опрос завершен. Результаты будут обработаны специалистом."
             else:
                 survey_session.result_text = "Опрос завершён."
-        survey_session.save(
-            update_fields=["completed_at", "result_text", "total_score", "risk_level", "per_category_scores", "per_category_status"]
-        )
+        save_fields = ["completed_at", "result_text", "total_score", "risk_level", "per_category_scores", "per_category_status"]
+        if slug == "ezhs":
+            save_fields.extend(["ejs_routine_analysis", "problematic_routines_count", "recommended_specialist_consultation"])
+        survey_session.save(update_fields=save_fields)
         return redirect("survey_result", slug=slug, session_id=survey_session.pk)
 
-    shown_until = min(end, total) if total else 0
-    progress_percent = int((shown_until / total) * 100) if total else 0
-    first_index = start + 1 if total else 0
-    last_index = shown_until
+    if slug == "ezhs":
+        q_orders = [q.order for q in questions]
+        first_index = min(q_orders) if q_orders else 0
+        last_index = max(q_orders) if q_orders else 0
+        progress_percent = int((page / total_pages) * 100) if total_pages else 0
+    else:
+        shown_until = min(end, total) if total else 0
+        progress_percent = int((shown_until / total) * 100) if total else 0
+        first_index = start + 1 if total else 0
+        last_index = shown_until
+
+    child_summary = None
+    if survey_session and survey_session.child_profile:
+        cp = survey_session.child_profile
+        child_summary = {
+            "name": cp.child_name,
+            "age_months": survey_session.child_age_months,
+            "gender": cp.gender,
+        }
 
     context = {
         "survey_slug": slug,
@@ -478,6 +718,8 @@ def survey_page(request, slug: str):
         "age_error": age_error,
         "existing_answers": existing_answers,
         "existing_answers_json": json.dumps(existing_answers),
+        "routine_page_name": routine_page_name,
+        "child_summary": child_summary,
     }
     return render(request, "surveys/survey_page.html", context)
 
@@ -490,7 +732,6 @@ def survey_result(request, slug: str, session_id: int):
         SurveySession.objects.select_related("survey_type", "child_profile", "child", "user"),
         pk=session_id,
         survey_type__slug=slug,
-        completed_at__isnull=False,
     )
     if request.user.is_authenticated and not _is_specialist(request.user):
         owner_ok = False
@@ -500,10 +741,40 @@ def survey_result(request, slug: str, session_id: int):
             owner_ok = True
         if not owner_ok:
             return HttpResponseForbidden("Доступ запрещён.")
-    if request.method == "POST" and request.POST.get("consent") == "1":
-        session.consent_to_send = True
-        session.save(update_fields=["consent_to_send"])
-        return redirect("survey_result", slug=slug, session_id=session_id)
+    if session.completed_at is None:
+        messages.info(request, "Этот опрос ещё не завершён. Продолжите заполнение черновика.")
+        return redirect(reverse("survey_page", args=[slug]) + f"?session_id={session.pk}")
+    if request.method == "POST":
+        if request.POST.get("consent") == "1":
+            session.consent_to_send = True
+            session.save(update_fields=["consent_to_send"])
+            return redirect("survey_result", slug=slug, session_id=session_id)
+        if slug == "ezhs" and request.POST.get("ezhs_save_discussion") == "1":
+            old = session.ejs_routine_analysis or {}
+            stored = dict(old.get("parent_discussion_requests") or {})
+            idx = 0
+            while f"ezhs_discuss_name_{idx}" in request.POST:
+                name = (request.POST.get(f"ezhs_discuss_name_{idx}") or "").strip()
+                if name:
+                    choice = (request.POST.get(f"ezhs_discuss_{idx}") or "").strip().lower()
+                    if choice in ("yes", "да"):
+                        stored[name] = True
+                    elif choice in ("no", "нет"):
+                        stored[name] = False
+                idx += 1
+            routine_counts = _ezhs_routine_question_counts(session)
+            answers_qs = list(
+                session.answers.select_related("question", "selected_option").order_by("question__order")
+            )
+            ezhs_pack = build_ejs_result(
+                answers_qs,
+                routine_question_counts=routine_counts,
+                parent_discussion_requests=stored,
+            )
+            session.ejs_routine_analysis = ezhs_pack
+            session.save(update_fields=["ejs_routine_analysis"])
+            messages.success(request, "Ваш выбор сохранён.")
+            return redirect("survey_result", slug=slug, session_id=session_id)
 
     context = {
         "survey_slug": slug,
@@ -511,6 +782,33 @@ def survey_result(request, slug: str, session_id: int):
         "session": session,
     }
     context.update(build_development_result_context(session, slug))
+    if slug == "ezhs":
+        routine_counts = _ezhs_routine_question_counts(session)
+        stored_disc = None
+        if isinstance(session.ejs_routine_analysis, dict):
+            dr = session.ejs_routine_analysis.get("parent_discussion_requests")
+            if isinstance(dr, dict) and dr:
+                stored_disc = dr
+        ezhs_pack = build_ejs_result(
+            list(session.answers.select_related("question", "selected_option").order_by("question__order")),
+            routine_question_counts=routine_counts,
+            parent_discussion_requests=stored_disc,
+        )
+        routines_list = ezhs_pack.get("routines", [])
+        weak_routines = [
+            r for r in routines_list if (not r.get("is_empty")) and r.get("status_code") != "calm"
+        ]
+        context.update(
+            {
+                "ezhs_result": ezhs_pack,
+                "ezhs_routines": routines_list,
+                "ezhs_weak_routines": weak_routines,
+                "ezhs_problematic_count": ezhs_pack.get("problematic_routines_count", 0),
+                "ezhs_final_recommendation": ezhs_pack.get("final_recommendation", session.result_text),
+                "ezhs_key_signals": ezhs_pack.get("key_signals", {}),
+                "ezhs_show_discussion_form": bool(weak_routines),
+            }
+        )
     if slug == "m-chat":
         failed_questions = int(session.total_score or 0)
         risk_level_text = RISK_TEXTS.get(session.risk_level or "", "")
@@ -570,24 +868,35 @@ def specialist_dashboard(request):
         sessions = [
             s for s in sessions
             if (s.survey_type.slug == "m-chat" and s.risk_level == "high")
+            or (s.survey_type.slug == "ezhs" and (s.problematic_routines_count or 0) >= 2)
             or ("зона риска" in (s.per_category_status or {}).values())
         ]
     elif risk_filter == "borderline":
         sessions = [
             s for s in sessions
             if (s.survey_type.slug == "m-chat" and s.risk_level == "medium")
+            or (s.survey_type.slug == "ezhs" and (s.problematic_routines_count or 0) == 1)
             or ("пограничное состояние" in (s.per_category_status or {}).values())
         ]
     elif risk_filter == "normal":
         sessions = [
             s for s in sessions
             if (s.survey_type.slug == "m-chat" and s.risk_level == "low")
+            or (s.survey_type.slug == "ezhs" and (s.problematic_routines_count or 0) == 0)
             or (s.per_category_status and all(v == "норма" for v in (s.per_category_status or {}).values()))
         ]
 
     for s in sessions:
         if s.survey_type.slug == "m-chat" and s.risk_level:
             s.risk_level = s.risk_level
+            continue
+        if s.survey_type.slug == "ezhs":
+            if (s.problematic_routines_count or 0) >= 2:
+                s.risk_level = "risk"
+            elif (s.problematic_routines_count or 0) == 1:
+                s.risk_level = "borderline"
+            else:
+                s.risk_level = "normal"
             continue
         statuses = list((s.per_category_status or {}).values())
         if "зона риска" in statuses:
@@ -679,12 +988,26 @@ def specialist_case_detail(request, pk: int):
         for ans in session.answers.select_related("question").order_by("question__order"):
             if int(ans.score or 0) == 1:
                 mchat_failed_answers.append(ans)
+    elif session.survey_type.slug == "ezhs":
+        stored_disc = None
+        if isinstance(session.ejs_routine_analysis, dict):
+            dr = session.ejs_routine_analysis.get("parent_discussion_requests")
+            if isinstance(dr, dict) and dr:
+                stored_disc = dr
+        ezhs_pack = build_ejs_result(
+            list(session.answers.select_related("question", "selected_option").all()),
+            routine_question_counts=_ezhs_routine_question_counts(session),
+            parent_discussion_requests=stored_disc,
+        )
+    else:
+        ezhs_pack = None
 
     context = {
         "session": session,
         "detail_rows": detail_rows,
         "mchat_failed_answers": mchat_failed_answers,
         "answer_rows": answer_rows,
+        "ezhs_result": ezhs_pack if session.survey_type.slug == "ezhs" else None,
     }
     return render(request, "specialist/case_detail.html", context)
 

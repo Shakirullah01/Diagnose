@@ -219,6 +219,80 @@
     </div>
     {% endif %}
 
+    {% if session.survey_type.slug == "ezhs" and ezhs_result %}
+    <div class="card rounded-4 border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h6 fw-semibold mb-3">Ключевые сигналы</h2>
+        <div class="small mb-2">Проблемные рутины: <strong>{{ ezhs_result.problematic_routines_count|default:0 }}</strong></div>
+        <div class="small mb-1">Где низкая удовлетворённость:
+          <strong>
+            {% if ezhs_result.key_signals.low_satisfaction_routines %}
+              {{ ezhs_result.key_signals.low_satisfaction_routines|join:", " }}
+            {% else %}—{% endif %}
+          </strong>
+        </div>
+        <div class="small">Родитель просит обсудить:
+          <strong>
+            {% if ezhs_result.key_signals.parent_requests_discussion %}
+              {{ ezhs_result.key_signals.parent_requests_discussion|join:", " }}
+            {% else %}—{% endif %}
+          </strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="accordion mb-4" id="ezhsRoutineAccordion">
+      {% for routine in ezhs_result.routines %}
+      <div class="accordion-item {% if routine.parent_wants_discussion %}border border-primary border-2 rounded-3{% endif %}">
+        <h2 class="accordion-header" id="ezhsHeading{{ forloop.counter }}">
+          <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} {% if routine.parent_wants_discussion %}fw-bold text-primary{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#ezhsCollapse{{ forloop.counter }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="ezhsCollapse{{ forloop.counter }}">
+            {{ routine.name }} — {{ routine.status_text }}{% if routine.parent_wants_discussion %} — запрос на обсуждение{% endif %}
+          </button>
+        </h2>
+        <div id="ezhsCollapse{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" aria-labelledby="ezhsHeading{{ forloop.counter }}" data-bs-parent="#ezhsRoutineAccordion">
+          <div class="accordion-body">
+            {% if routine.is_empty %}
+              <div class="text-muted small">{{ routine.empty_text }}</div>
+            {% else %}
+              <div class="row g-2 small mb-3">
+                <div class="col-md-4"><strong>Удовлетворённость:</strong> {% if routine.satisfaction_score is not None %}{{ routine.satisfaction_score }}/5{% else %}—{% endif %}</div>
+                <div class="col-md-4"><strong>Статус:</strong> {{ routine.status_text }}</div>
+                <div class="col-md-4"><strong>Запрос обсудить со специалистом:</strong> {% if routine.parent_wants_discussion is True %}Да{% elif routine.parent_wants_discussion is False %}Нет{% else %}—{% endif %}</div>
+                <div class="col-md-12">
+                  <strong>Распределение:</strong>
+                  Часто {{ routine.counts.often }}, Редко {{ routine.counts.rare }}, Еще не делает {{ routine.counts.not_yet }}, Уже не делает {{ routine.counts.not_anymore }}
+                </div>
+              </div>
+            {% endif %}
+            {% if not routine.is_empty %}
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Вопрос</th>
+                      <th>Возраст</th>
+                      <th>Ответ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for q in routine.questions %}
+                    <tr>
+                      <td>{{ q.text }}</td>
+                      <td>{{ q.age_label }}</td>
+                      <td>{{ q.answer_text }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="row g-3 mb-4">
       <div class="col-12 col-lg-6">
         <div class="card rounded-4 border-0 shadow-sm h-100">

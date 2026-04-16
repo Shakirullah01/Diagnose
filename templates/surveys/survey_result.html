@@ -167,7 +167,98 @@
             {% endif %}
 
             {% else %}
-            {% if survey_slug == "m-chat" %}
+            {% if survey_slug == "ezhs" %}
+            <div class="alert alert-light border rounded-4 mb-4">
+              <p class="mb-1">ЕЖС помогает понять, как ребенок ведет себя в повседневных жизненных ситуациях.</p>
+              <p class="mb-0"><strong>{{ ezhs_final_recommendation|default:session.result_text }}</strong></p>
+            </div>
+            <div class="small text-muted mb-3">
+              Шкала удовлетворённости: 1 — совсем не удовлетворён, 5 — полностью удовлетворён.
+            </div>
+            {% if ezhs_routines %}
+            <div class="row g-3 mb-4">
+              {% for routine in ezhs_routines %}
+              <div class="col-12 col-lg-6">
+                <div class="card rounded-4 border-0 shadow-sm h-100 {% if routine.is_empty %}border-start border-4 border-secondary{% elif routine.status_code == 'calm' %}border-start border-4 border-success{% elif routine.status_code == 'mixed' %}border-start border-4 border-warning{% else %}border-start border-4 border-danger{% endif %}">
+                  <div class="card-body">
+                    <h3 class="h6 fw-semibold mb-3">{{ routine.name }}</h3>
+                    {% if routine.is_empty %}
+                      <p class="text-muted small mb-0">{{ routine.empty_text }}</p>
+                    {% else %}
+                      <div class="small mb-2">
+                        <span class="text-muted">Статус:</span>
+                        {% if routine.status_code == "calm" %}
+                          <span class="badge text-bg-success">{{ routine.status_text }}</span>
+                        {% elif routine.status_code == "mixed" %}
+                          <span class="badge text-bg-warning text-dark">{{ routine.status_text }}</span>
+                        {% else %}
+                          <span class="badge text-bg-danger">{{ routine.status_text }}</span>
+                        {% endif %}
+                      </div>
+                      <div class="small mb-1">Удовлетворённость: <strong>{% if routine.satisfaction_score is not None %}{{ routine.satisfaction_score }}/5{% else %}—{% endif %}</strong></div>
+                      <div class="small text-muted mb-1">Распределение ответов</div>
+                      <div class="small mb-0">
+                        Часто: <strong>{{ routine.counts.often }}</strong>,
+                        Редко: <strong>{{ routine.counts.rare }}</strong>,
+                        Еще не делает: <strong>{{ routine.counts.not_yet }}</strong>,
+                        Уже не делает: <strong>{{ routine.counts.not_anymore }}</strong>
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% if ezhs_show_discussion_form %}
+            <form method="post" class="mb-4">
+              {% csrf_token %}
+              <input type="hidden" name="ezhs_save_discussion" value="1">
+              {% for routine in ezhs_weak_routines %}
+                  <div class="card rounded-4 border-0 shadow-sm mb-3">
+                    <div class="card-body p-4">
+                      <div class="fw-semibold mb-1">{{ routine.name }}</div>
+                      <p class="small text-muted mb-3 mb-md-2">Хотите ли Вы обсудить эту рутину со специалистом?</p>
+                      <input type="hidden" name="ezhs_discuss_name_{{ forloop.counter0 }}" value="{{ routine.name }}">
+                      <div class="d-flex flex-wrap gap-2">
+                        <div class="option-chip option-chip-wide">
+                          <input
+                            class="option-chip-input"
+                            type="radio"
+                            name="ezhs_discuss_{{ forloop.counter0 }}"
+                            id="ezhs_disc_yes_{{ forloop.counter0 }}"
+                            value="yes"
+                            {% if routine.parent_wants_discussion == True %}checked{% endif %}
+                            required
+                          >
+                          <label class="option-chip-label option-chip-label-wide" for="ezhs_disc_yes_{{ forloop.counter0 }}">Да</label>
+                        </div>
+                        <div class="option-chip option-chip-wide">
+                          <input
+                            class="option-chip-input"
+                            type="radio"
+                            name="ezhs_discuss_{{ forloop.counter0 }}"
+                            id="ezhs_disc_no_{{ forloop.counter0 }}"
+                            value="no"
+                            {% if routine.parent_wants_discussion == False %}checked{% endif %}
+                          >
+                          <label class="option-chip-label option-chip-label-wide" for="ezhs_disc_no_{{ forloop.counter0 }}">Нет</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+              {% endfor %}
+              <button type="submit" class="btn btn-primary rounded-4">Сохранить ответы по обсуждению со специалистом</button>
+            </form>
+            {% endif %}
+            <div class="card rounded-4 border-0 shadow-sm mb-4">
+              <div class="card-body">
+                <h2 class="h6 text-uppercase text-muted mb-2">Итоговая рекомендация</h2>
+                <p class="mb-2">{{ ezhs_final_recommendation|default:session.result_text }}</p>
+                <p class="small text-muted mb-0">Проблемных рутин: {{ ezhs_problematic_count|default:0 }}</p>
+              </div>
+            </div>
+            {% elif survey_slug == "m-chat" %}
             <div class="row g-3 mb-4">
               <div class="col-12 col-md-4">
                 <div class="p-3 rounded-4 bg-light h-100">
@@ -398,5 +489,20 @@
     .status-card.status-success { border-left: 6px solid #198754 !important; }
     .status-card.status-warning { border-left: 6px solid #ffc107 !important; }
     .status-card.status-danger { border-left: 6px solid #dc3545 !important; }
+    {% if survey_slug == "ezhs" %}
+    .option-chip { position: relative; }
+    .option-chip-input { position: absolute; opacity: 0; pointer-events: none; }
+    .option-chip-label {
+      width: auto; min-width: 8.5rem; min-height: 2.75rem; padding: .45rem .9rem;
+      border-radius: 999px; border: 2px solid #ced4da; display: inline-flex;
+      align-items: center; justify-content: center; font-weight: 600; cursor: pointer;
+      user-select: none; transition: all .15s ease; background: #fff; font-size: .95rem;
+    }
+    .option-chip-input:checked + .option-chip-label {
+      border-color: #2f6fed; background: rgba(47,111,237,.12); color: #1f4db8;
+      box-shadow: 0 0 0 .2rem rgba(47,111,237,.15);
+    }
+    .option-chip-label:hover { border-color: #2f6fed; }
+    {% endif %}
   </style>
 {% endblock %}

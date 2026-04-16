@@ -122,6 +122,20 @@ class SurveySession(models.Model):
         blank=True,
         verbose_name="Уровень риска",
     )
+    ejs_routine_analysis = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="ЕЖС: анализ по рутинам",
+    )
+    problematic_routines_count = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="ЕЖС: проблемных рутин",
+    )
+    recommended_specialist_consultation = models.BooleanField(
+        default=False,
+        verbose_name="ЕЖС: рекомендована консультация специалиста",
+    )
     per_category_scores = models.JSONField(null=True, blank=True, verbose_name="Баллы по категориям")
     per_category_status = models.JSONField(null=True, blank=True, verbose_name="Оценка по категориям")
     result_text = models.TextField(blank=True, verbose_name="Заключение")

@@ -33,6 +33,7 @@ def parent_dashboard(request):
                 "show_kdi": age is not None and 2 <= age <= 16,
                 "show_rcdi": age is not None and 14 <= age <= 42,
                 "show_mchat": age is not None and 16 <= age <= 30,
+                "show_ezhs": age is not None and 0 <= age <= 36,
             }
         )
 

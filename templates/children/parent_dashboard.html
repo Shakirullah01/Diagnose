@@ -36,6 +36,9 @@
                   {% if item.show_mchat %}
                     <a href="{% url 'survey_start' 'm-chat' %}?child_profile={{ profile.pk }}" class="btn btn-sm btn-outline-primary rounded-4">Пройти тест M-CHAT</a>
                   {% endif %}
+                  {% if item.show_ezhs %}
+                    <a href="{% url 'survey_start' 'ezhs' %}?child_profile={{ profile.pk }}" class="btn btn-sm btn-outline-primary rounded-4">Пройти тест ЕЖС</a>
+                  {% endif %}
                 </div>
                 <a href="{% url 'child_profile_edit' profile.pk %}" class="btn btn-sm btn-outline-secondary rounded-4">Редактировать анкету</a>
               </div>
@@ -104,8 +107,14 @@
                   <td>{{ row.session.survey_type.name }}</td>
                   <td>{% if row.session.completed_at %}{{ row.session.completed_at|date:"d.m.Y H:i" }}{% else %}—{% endif %}</td>
                   <td>{{ row.progress_status }}</td>
-                  <td>{{ row.session.result_text|default:"—"|truncatechars:80 }}</td>
-                  <td><a class="btn btn-sm btn-outline-primary rounded-4" href="{% url 'survey_result' row.session.survey_type.slug row.session.id %}">Открыть результат</a></td>
+                  <td>{% if row.session.completed_at %}{{ row.session.result_text|default:"—"|truncatechars:80 }}{% else %}Черновик не завершён{% endif %}</td>
+                  <td>
+                    {% if row.session.completed_at %}
+                      <a class="btn btn-sm btn-outline-primary rounded-4" href="{% url 'survey_result' row.session.survey_type.slug row.session.id %}">Открыть результат</a>
+                    {% else %}
+                      <a class="btn btn-sm btn-outline-primary rounded-4" href="{% url 'survey_page' row.session.survey_type.slug %}?session_id={{ row.session.id }}">Продолжить</a>
+                    {% endif %}
+                  </td>
                 </tr>
                 {% endfor %}
               </tbody>
