@@ -26,23 +26,47 @@
         </button>
         <div class="collapse navbar-collapse" id="mainNav">
           <ul class="navbar-nav ms-auto align-items-lg-center mb-2 mb-lg-0">
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'home' %}">Главная</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'home' %}#about">О системе</a>
+            </li>
+            <li class="nav-item">
+              {% if user.is_authenticated and not user.is_specialist %}
+                <a class="nav-link" href="{% url 'parent_dashboard' %}">Опросы</a>
+              {% else %}
+                <a class="nav-link" href="{% url 'home' %}#surveys">Опросы</a>
+              {% endif %}
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'home' %}#how-it-works">Инструкция</a>
+            </li>
+
             {% if user.is_authenticated and user.is_specialist %}
-              <li class="nav-item"><a class="nav-link fw-semibold text-primary" href="{% url 'specialist_dashboard' %}">Панель специалиста</a></li>
-              <li class="nav-item"><a class="nav-link" href="{% url 'specialist_dashboard' %}?risk=risk">Все анкеты</a></li>
-              <li class="nav-item"><a class="nav-link" href="{% url 'specialist_dashboard' %}">Аналитика</a></li>
-            {% else %}
-              <li class="nav-item"><a class="nav-link" href="{% url 'parent_dashboard' %}">Мои дети</a></li>
-              <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'kdi' %}">Пройти тест</a></li>
-              <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'rcdi' %}">RCDI</a></li>
-              <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'ezhs' %}">ЕЖС</a></li>
-              <li class="nav-item"><a class="nav-link" href="{% url 'survey_start' 'm-chat' %}">M-CHAT</a></li>
+              <li class="nav-item ms-lg-3">
+                <a class="nav-link fw-semibold text-primary" href="{% url 'specialist_dashboard' %}">Панель специалиста</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'specialist_dashboard' %}?risk=risk">Все анкеты</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'specialist_dashboard' %}">Аналитика</a>
+              </li>
             {% endif %}
+
             <li class="nav-item ms-lg-2">
-            {% if user.is_authenticated %}
-              <a class="btn btn-outline-primary btn-sm rounded-4" href="{% url 'logout' %}">Выйти</a>
-            {% else %}
-              <a class="btn btn-primary btn-sm rounded-4" href="{% url 'login' %}">Войти</a>
-            {% endif %}
+              {% if user.is_authenticated %}
+                <form method="post" action="{% url 'logout' %}" class="m-0">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-outline-primary btn-sm rounded-4">Выйти</button>
+                </form>
+              {% else %}
+                <div class="d-flex gap-2 align-items-center">
+                  <a class="btn btn-outline-primary btn-sm rounded-4" href="{% url 'login' %}">Войти</a>
+                  <a class="btn btn-primary btn-sm rounded-4" href="{% url 'register' %}">Регистрация</a>
+                </div>
+              {% endif %}
             </li>
           </ul>
         </div>

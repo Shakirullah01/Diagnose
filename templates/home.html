@@ -5,103 +5,274 @@
 
 {% block content %}
   <div class="container">
-    <div class="row align-items-center g-4 py-4 py-lg-5">
-      <div class="col-12 col-lg-6">
-        <div class="pe-lg-4">
-          <span class="badge text-bg-primary-subtle text-primary rounded-pill mb-3">Ранняя диагностика • Удобно для родителей</span>
-          <h1 class="display-6 fw-semibold mb-3">Система раннего выявления особенностей развития ребенка</h1>
-          <p class="lead text-muted mb-4">
-            Родители могут пройти диагностический опросник для оценки развития ребенка и при необходимости отправить результаты специалистам для анализа.
-          </p>
-
-          <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-primary btn-lg rounded-4" href="{% url 'survey_page' 'kdi' %}">Начать опрос</a>
-            <a class="btn btn-outline-primary btn-lg rounded-4" href="#about">Узнать больше</a>
-          </div>
-
-          <div class="mt-4">
-            <div class="card card-soft rounded-4 border-0">
-              <div class="card-body">
-                <div class="d-flex flex-column flex-md-row gap-3">
-                  <div class="flex-fill">
-                    <div class="fw-semibold">Доступные опросники</div>
-                    <div class="text-muted small">KID(до 16 месяцев), RCDI(от 14 месяцев до 3.5) ЕЖС, M-CHAT (вопросы позже будут загружаться из базы данных).</div>
-                  </div>
-                  <div class="flex-fill">
-                    <div class="fw-semibold">Конфиденциальность</div>
-                    <div class="text-muted small">Родители сами решают, отправлять ли результаты специалистам.</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-12 col-lg-6">
-        <div class="card rounded-4 border-0 shadow-sm overflow-hidden">
-          <div class="ratio ratio-4x3 bg-light">
-            <img
-              src="{% static 'img/family_with_child_placeholder.jpg' %}"
-              alt="Семья с ребенком"
-              class="w-100 h-100 object-fit-cover"
-            >
-          </div>
-          <div class="card-body">
-            <!-- <div class="text-muted small">
-              Изображение-заглушка: <code>family_with_child_placeholder.jpg</code> (заменяем позже).
-            </div> -->
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="about" class="row g-4 pb-5">
-      <div class="col-12 col-lg-7">
-        <div class="card rounded-4 border-0 shadow-sm">
-          <div class="card-body p-4 p-lg-5">
-            <h2 class="h4 fw-semibold mb-2">Как это работает</h2>
-            <p class="text-muted mb-4">
-              Выберите опросник, ответьте на вопросы и просмотрите результат. В дальнейшем ответы будут сохраняться и визуализироваться.
+    <!-- 1) Hero -->
+    <section class="py-4">
+      <div class="row align-items-center g-4 py-2 py-lg-5">
+        <div class="col-12 col-lg-6">
+          <div class="pe-lg-4">
+            <span class="badge text-bg-primary-subtle text-primary rounded-pill mb-3">Для родителей • Онлайн-опросы</span>
+            <h1 class="display-6 fw-semibold mb-3">Система ранней диагностики развития ребёнка</h1>
+            <p class="lead text-muted mb-4">
+              Этот сервис помогает оценить, как ребёнок ведёт себя в обычных жизненных ситуациях.
+              Опросы можно пройти онлайн, а результаты — обсудить со специалистом при необходимости.
             </p>
-            <div class="row g-3">
-              <div class="col-12 col-md-4">
-                <div class="p-3 rounded-4 bg-soft">
-                  <div class="fw-semibold">1) Выберите опросник</div>
-                  <div class="text-muted small">KID, RCDI, ЕЖС, M-CHAT.</div>
-                </div>
-              </div>
-              <div class="col-12 col-md-4">
-                <div class="p-3 rounded-4 bg-soft">
-                  <div class="fw-semibold">2) Ответьте просто</div>
-                  <div class="text-muted small">Удобные варианты ответов на телефоне.</div>
-                </div>
-              </div>
-              <div class="col-12 col-md-4">
-                <div class="p-3 rounded-4 bg-soft">
-                  <div class="fw-semibold">3) Просмотрите и при желании отправьте</div>
-                  <div class="text-muted small">Опциональная отправка специалистам.</div>
+
+            <div class="d-flex flex-wrap gap-2">
+              {% if user.is_authenticated and not user.is_specialist %}
+                <a class="btn btn-primary btn-lg rounded-4" href="{% url 'parent_dashboard' %}">Перейти в кабинет</a>
+              {% else %}
+                <a class="btn btn-primary btn-lg rounded-4" href="{% url 'login' %}">Войти / Зарегистрироваться</a>
+              {% endif %}
+              <a class="btn btn-outline-primary btn-lg rounded-4" href="#how-it-works">Узнать подробнее</a>
+            </div>
+
+            <div class="mt-4">
+              <div class="card card-soft rounded-4 border-0">
+                <div class="card-body">
+                  <div class="d-flex flex-column flex-md-row gap-3">
+                    <div class="flex-fill">
+                      <div class="fw-semibold mb-1">Что дальше</div>
+                      <div class="text-muted small">
+                        Вы отвечаете на вопросы, видите результат и при желании отправляете его специалисту.
+                      </div>
+                    </div>
+                    <div class="flex-fill">
+                      <div class="fw-semibold mb-1">Конфиденциальность</div>
+                      <div class="text-muted small">Вы сами решаете, нужно ли обсуждение с врачом.</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
+        <div class="col-12 col-lg-6">
+          <div class="card rounded-4 border-0 shadow-sm overflow-hidden">
+            <div class="ratio ratio-4x3 bg-light">
+              <img
+                src="{% static 'img/family_with_child_placeholder.jpg' %}"
+                alt="Семья с ребенком"
+                class="w-100 h-100 object-fit-cover"
+              >
+            </div>
+            <div class="card-body"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2) Short explanation -->
+    <section id="about" class="pb-5">
+      <div class="row g-4">
+        <div class="col-12 col-lg-8">
+          <div class="card rounded-4 border-0 shadow-sm">
+            <div class="card-body p-4 p-lg-5">
+              <h2 class="h4 fw-semibold mb-3">Что это за система</h2>
+              <p class="text-muted mb-4">
+                Этот сервис создан для родителей, чтобы понятнее увидеть сильные стороны и те навыки, которым нужно
+                уделить больше внимания. Вопросы подбираются с учетом возраста ребёнка.
+              </p>
+              <div class="row g-3">
+                <div class="col-12 col-md-4">
+                  <div class="p-3 rounded-4 bg-soft h-100">
+                    <div class="fw-semibold mb-1">Для кого</div>
+                    <div class="text-muted small">Для родителей детей от 0 до 42 месяцев.</div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <div class="p-3 rounded-4 bg-soft h-100">
+                    <div class="fw-semibold mb-1">Какая польза</div>
+                    <div class="text-muted small">Понятный разбор и простые рекомендации.</div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <div class="p-3 rounded-4 bg-soft h-100">
+                    <div class="fw-semibold mb-1">Без стресса</div>
+                    <div class="text-muted small">Нет «правильно/неправильно». Есть наблюдения.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+          <div class="card rounded-4 border-0 shadow-sm h-100">
+            <div class="card-body p-4 p-lg-5">
+              <h3 class="h5 fw-semibold mb-3">Коротко</h3>
+              <ul class="list-unstyled text-muted small mb-0">
+                <li class="mb-2">• Выберите опрос по возрасту</li>
+                <li class="mb-2">• Ответьте на вопросы</li>
+                <li class="mb-2">• Получите результат</li>
+                <li class="mb-2">• При необходимости обсудите со специалистом</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3) Step-by-step -->
+    <section id="how-it-works" class="pb-5">
+      <div class="card rounded-4 border-0 shadow-sm">
+        <div class="card-body p-4 p-lg-5">
+          <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
+            <h2 class="h4 fw-semibold mb-0">Как это работает</h2>
+            <div class="text-muted small">Просто следуйте шагам по порядку</div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-12 col-md-4">
+              <div class="p-3 rounded-4 bg-soft h-100">
+                <div class="fw-semibold">1. Зарегистрируйтесь или войдите</div>
+                <div class="text-muted small mt-1">Чтобы сохранять ваши ответы.</div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="p-3 rounded-4 bg-soft h-100">
+                <div class="fw-semibold">2. Добавьте профиль ребёнка</div>
+                <div class="text-muted small mt-1">Укажите возраст и данные.</div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="p-3 rounded-4 bg-soft h-100">
+                <div class="fw-semibold">3. Выберите подходящий опрос</div>
+                <div class="text-muted small mt-1">С учетом возраста.</div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="p-3 rounded-4 bg-soft h-100">
+                <div class="fw-semibold">4. Ответьте на вопросы</div>
+                <div class="text-muted small mt-1">Один вариант на каждый вопрос.</div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="p-3 rounded-4 bg-soft h-100">
+                <div class="fw-semibold">5. Получите результат</div>
+                <div class="text-muted small mt-1">Понятный разбор по сферам.</div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="p-3 rounded-4 bg-soft h-100">
+                <div class="fw-semibold">6. При необходимости отправьте специалисту</div>
+                <div class="text-muted small mt-1">Только если вы этого хотите.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4) Available surveys -->
+    <section id="surveys" class="pb-5">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <h2 class="h4 fw-semibold mb-0">Доступные опросы</h2>
+        <div class="text-muted small">Опросы подбираются по возрасту ребёнка</div>
       </div>
 
-      <div class="col-12 col-lg-5">
-        <div class="card rounded-4 border-0 shadow-sm">
-          <div class="card-body p-4 p-lg-5">
-            <h2 class="h4 fw-semibold mb-3">Вход</h2>
-            <p class="text-muted small mb-3">
-              Аккаунт поможет сохранять историю прохождения опросников (логика будет расширена).
-            </p>
-            <a class="btn btn-primary w-100 rounded-4" href="{% url 'login' %}">Войти</a>
-            <div class="text-center mt-3">
-              <a class="link-primary" href="{% url 'register' %}">Зарегистрироваться</a>
+      <div class="row g-3">
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="card rounded-4 border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+              <div class="fw-semibold text-primary mb-2">KID</div>
+              <div class="text-muted small mb-3">2–16 месяцев</div>
+              <div class="fw-semibold mb-2">Что помогает оценить</div>
+              <div class="text-muted small">Развитие бытовых и повседневных навыков.</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="card rounded-4 border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+              <div class="fw-semibold text-primary mb-2">RCDI</div>
+              <div class="text-muted small mb-3">14–42 месяца</div>
+              <div class="fw-semibold mb-2">Что помогает оценить</div>
+              <div class="text-muted small">Навыки и поведение ребёнка.</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="card rounded-4 border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+              <div class="fw-semibold text-primary mb-2">M-CHAT</div>
+              <div class="text-muted small mb-3">16–30 месяцев</div>
+              <div class="fw-semibold mb-2">Что помогает оценить</div>
+              <div class="text-muted small">Скрининг признаков аутизма.</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+          <div class="card rounded-4 border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+              <div class="fw-semibold text-primary mb-2">ЕЖС</div>
+              <div class="text-muted small mb-3">0–36 месяцев</div>
+              <div class="fw-semibold mb-2">Что помогает оценить</div>
+              <div class="text-muted small">Ежедневные жизненные ситуации.</div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
+
+    <!-- 5) Why system is useful -->
+    <section id="benefits" class="pb-5">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <h2 class="h4 fw-semibold mb-0">Почему это важно</h2>
+        <div class="text-muted small">Понятно и по-доброму</div>
+      </div>
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <div class="p-4 rounded-4 bg-soft h-100">
+            <div class="fw-semibold mb-2">Помогает заметить трудности раньше</div>
+            <div class="text-muted small">Вы видите, где нужно больше внимания и поддержки.</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="p-4 rounded-4 bg-soft h-100">
+            <div class="fw-semibold mb-2">Можно пройти онлайн</div>
+            <div class="text-muted small">Опросы удобно делать с телефона, без лишней бумажной работы.</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="p-4 rounded-4 bg-soft h-100">
+            <div class="fw-semibold mb-2">Результат понятный</div>
+            <div class="text-muted small">Разбор без сложных терминов: что нормально и что требует внимания.</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="p-4 rounded-4 bg-soft h-100">
+            <div class="fw-semibold mb-2">При необходимости можно обсудить с специалистом</div>
+            <div class="text-muted small">Если вам нужна консультация — вы можете отправить результат.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6) Call to action -->
+    <section id="cta" class="pb-5">
+      <div class="card rounded-4 border-0 shadow-sm">
+        <div class="card-body p-4 p-lg-5">
+          <div class="row g-4 align-items-center">
+            <div class="col-12 col-lg-8">
+              <h2 class="h4 fw-semibold mb-2">Чтобы начать работу с системой</h2>
+              <p class="text-muted mb-0">
+                Войдите или зарегистрируйтесь — дальше вы сможете добавить профиль ребёнка и пройти подходящий опрос.
+              </p>
+            </div>
+            <div class="col-12 col-lg-4">
+              <div class="d-grid gap-2">
+                {% if user.is_authenticated and not user.is_specialist %}
+                  <a class="btn btn-primary btn-lg rounded-4" href="{% url 'parent_dashboard' %}">В кабинет</a>
+                {% else %}
+                  <a class="btn btn-primary btn-lg rounded-4" href="{% url 'login' %}">Войти / Зарегистрироваться</a>
+                  <a class="btn btn-outline-primary rounded-4" href="{% url 'register' %}">Регистрация</a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 {% endblock %}
