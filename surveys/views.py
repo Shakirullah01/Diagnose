@@ -4,7 +4,7 @@ import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db import connection
-from django.db.models import Prefetch, Sum
+from django.db.models import Min, Prefetch, Sum
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -238,6 +238,15 @@ def _ordered_topics_for_ezhs(base_qs):
         seen.add(topic_key)
         result.append({"raw": raw_topic, "label": topic_key})
     return result
+
+
+def _dedupe_questions_by_order(base_qs):
+    """
+    Не меняем БД и не трогаем scoring-логику:
+    для каждого order показываем один канонический вопрос (min id).
+    """
+    canonical_ids = base_qs.values("order").annotate(min_id=Min("id")).values_list("min_id", flat=True)
+    return base_qs.filter(id__in=canonical_ids)
 
 
 def _ensure_questions_imported_from_legacy(slug: str) -> SurveyType | None:
@@ -485,6 +494,10 @@ def survey_page(request, slug: str):
     base_qs = Question.objects.filter(survey_type=survey_type, is_active=True) if survey_type else Question.objects.none()
     if survey_type and slug in ("kdi", "rcdi"):
         base_qs = base_qs.exclude(category="")
+    # KID в текущей БД может содержать дубли по order.
+    # Для прохождения показываем по одному вопросу на каждый номер.
+    if slug == "kdi":
+        base_qs = _dedupe_questions_by_order(base_qs)
 
     if slug == "ezhs":
         if not survey_session:
@@ -722,10 +735,14 @@ def survey_page(request, slug: str):
         last_index = max(q_orders) if q_orders else 0
         progress_percent = int((page / total_pages) * 100) if total_pages else 0
     else:
-        shown_until = min(end, total) if total else 0
-        progress_percent = int((shown_until / total) * 100) if total else 0
+        if slug == "m-chat" and survey_session:
+            answered_on_survey = Answer.objects.filter(session=survey_session).count()
+            progress_percent = int((answered_on_survey / total) * 100) if total else 0
+        else:
+            shown_until = min(end, total) if total else 0
+            progress_percent = int((shown_until / total) * 100) if total else 0
         first_index = start + 1 if total else 0
-        last_index = shown_until
+        last_index = min(end, total) if total else 0
 
     child_summary = None
     if survey_session:

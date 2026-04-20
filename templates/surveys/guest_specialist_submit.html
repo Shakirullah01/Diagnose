@@ -27,15 +27,252 @@
                     </div>
                   {% endif %}
 
-                  {% for field in child_form.visible_fields %}
-                    <div class="mb-3">
-                      <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                      {{ field }}
-                      {% if field.errors %}
-                        <div class="text-danger small mt-1">{{ field.errors }}</div>
-                      {% endif %}
+                  <div class="card rounded-4 border-0 shadow-sm mb-4">
+                    <div class="card-body p-4">
+                      <h3 class="h6 fw-semibold text-primary mb-3">Информация о ребёнке</h3>
+                      <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                          <label class="form-label">{{ child_form.child_name.label }}</label>
+                          {{ child_form.child_name }}
+                          {{ child_form.child_name.errors }}
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label class="form-label">{{ child_form.birth_date.label }}</label>
+                          {{ child_form.birth_date }}
+                          {{ child_form.birth_date.errors }}
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label class="form-label">{{ child_form.gender.label }}</label>
+                          <div class="radio-list">
+                            {% for choice in child_form.gender %}
+                              <label class="radio-row" for="{{ choice.id_for_label }}">
+                                {{ choice.tag }} <span>{{ choice.choice_label }}</span>
+                              </label>
+                            {% endfor %}
+                          </div>
+                          {{ child_form.gender.errors }}
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label class="form-label">{{ child_form.birth_week.label }}</label>
+                          {{ child_form.birth_week }}
+                          {{ child_form.birth_week.errors }}
+                        </div>
+                        <div class="col-12">
+                          <label class="form-label">{{ child_form.address.label }}</label>
+                          {{ child_form.address }}
+                          {{ child_form.address.errors }}
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label class="form-label">{{ child_form.phone.label }}</label>
+                          {{ child_form.phone }}
+                          {{ child_form.phone.errors }}
+                        </div>
+                      </div>
                     </div>
-                  {% endfor %}
+                  </div>
+
+                  <div class="card rounded-4 border-0 shadow-sm mb-4">
+                    <div class="card-body p-4">
+                      <h3 class="h6 fw-semibold text-primary mb-3">Кто заполняет</h3>
+                      <div class="radio-list">
+                        {% for choice in child_form.filled_by %}
+                          <label class="radio-row" for="{{ choice.id_for_label }}">
+                            {{ choice.tag }}
+                            <span>{{ choice.choice_label }}</span>
+                          </label>
+                        {% endfor %}
+                      </div>
+                      {{ child_form.filled_by.errors }}
+                    </div>
+                  </div>
+
+                  <div class="card rounded-4 border-0 shadow-sm mb-4">
+                    <div class="card-body p-4">
+                      <h3 class="h6 fw-semibold text-primary mb-3">Состояние ребёнка</h3>
+                      <div class="mb-3">
+                        <label class="form-label">{{ child_form.birth_conditions.label }}</label>
+                        <div class="radio-list">
+                          {% for choice in child_form.birth_conditions %}
+                            <label class="radio-row" for="{{ choice.id_for_label }}">
+                              {{ choice.tag }}
+                              <span>{{ choice.choice_label }}</span>
+                            </label>
+                          {% endfor %}
+                        </div>
+                        {{ child_form.birth_conditions.errors }}
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">{{ child_form.child_health.label }}</label>
+                        <div class="radio-list">
+                          {% for choice in child_form.child_health %}
+                            <label class="radio-row" for="{{ choice.id_for_label }}">
+                              {{ choice.tag }}
+                              <span>{{ choice.choice_label }}</span>
+                            </label>
+                          {% endfor %}
+                        </div>
+                        {{ child_form.child_health.errors }}
+                      </div>
+                      <div class="mb-0">
+                        <label class="form-label">{{ child_form.seizures.label }}</label>
+                        <div class="radio-list">
+                          {% for choice in child_form.seizures %}
+                            <label class="radio-row" for="{{ choice.id_for_label }}">
+                              {{ choice.tag }}
+                              <span>{{ choice.choice_label }}</span>
+                            </label>
+                          {% endfor %}
+                        </div>
+                        {{ child_form.seizures.errors }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card rounded-4 border-0 shadow-sm mb-4">
+                    <div class="card-body p-4">
+                      <h3 class="h6 fw-semibold text-primary mb-3">Семья и воспитание</h3>
+                      <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-6">
+                          <label class="form-label">{{ child_form.where_child_grows.label }}</label>
+                          <div class="radio-list">
+                            {% for choice in child_form.where_child_grows %}
+                              <label class="radio-row" for="{{ choice.id_for_label }}">
+                                {{ choice.tag }}
+                                <span>{{ choice.choice_label }}</span>
+                              </label>
+                            {% endfor %}
+                          </div>
+                          {{ child_form.where_child_grows.errors }}
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label class="form-label">{{ child_form.family_language.label }}</label>
+                          <div class="radio-list">
+                            {% for choice in child_form.family_language %}
+                              <label class="radio-row" for="{{ choice.id_for_label }}">
+                                {{ choice.tag }}
+                                <span>{{ choice.choice_label }}</span>
+                              </label>
+                            {% endfor %}
+                          </div>
+                          {{ child_form.family_language.errors }}
+                        </div>
+                      </div>
+                      <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">{{ child_form.children_count.label }}</label>
+                          {{ child_form.children_count }}
+                          {{ child_form.children_count.errors }}
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">{{ child_form.main_caregiver.label }}</label>
+                          <div class="radio-list">
+                            {% for choice in child_form.main_caregiver %}
+                              <label class="radio-row" for="{{ choice.id_for_label }}">
+                                {{ choice.tag }}
+                                <span>{{ choice.choice_label }}</span>
+                              </label>
+                            {% endfor %}
+                          </div>
+                          {{ child_form.main_caregiver.errors }}
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">{{ child_form.caregiver_mood.label }}</label>
+                          <div class="radio-list">
+                            {% for choice in child_form.caregiver_mood %}
+                              <label class="radio-row" for="{{ choice.id_for_label }}">
+                                {{ choice.tag }}
+                                <span>{{ choice.choice_label }}</span>
+                              </label>
+                            {% endfor %}
+                          </div>
+                          {{ child_form.caregiver_mood.errors }}
+                        </div>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">{{ child_form.caregiver_values.label }}</label>
+                        <div class="radio-list">
+                          {% for choice in child_form.caregiver_values %}
+                            <label class="radio-row" for="{{ choice.id_for_label }}">
+                              {{ choice.tag }}
+                              <span>{{ choice.choice_label }}</span>
+                            </label>
+                          {% endfor %}
+                        </div>
+                        {{ child_form.caregiver_values.errors }}
+                      </div>
+                      <div class="mb-0">
+                        <label class="form-label">{{ child_form.economic_status.label }}</label>
+                        <div class="radio-list">
+                          {% for choice in child_form.economic_status %}
+                            <label class="radio-row" for="{{ choice.id_for_label }}">
+                              {{ choice.tag }}
+                              <span>{{ choice.choice_label }}</span>
+                            </label>
+                          {% endfor %}
+                        </div>
+                        {{ child_form.economic_status.errors }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="card rounded-4 border-0 shadow-sm mb-0">
+                    <div class="card-body p-4">
+                      <h3 class="h6 fw-semibold text-primary mb-3">Родители и образование</h3>
+                      <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">{{ child_form.mother_age.label }}</label>
+                          {{ child_form.mother_age }}
+                          {{ child_form.mother_age.errors }}
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">{{ child_form.father_age.label }}</label>
+                          {{ child_form.father_age }}
+                          {{ child_form.father_age.errors }}
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label class="form-label">{{ child_form.caregiver_age.label }}</label>
+                          {{ child_form.caregiver_age }}
+                          {{ child_form.caregiver_age.errors }}
+                        </div>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">{{ child_form.mother_education.label }}</label>
+                        <div class="radio-list">
+                          {% for choice in child_form.mother_education %}
+                            <label class="radio-row" for="{{ choice.id_for_label }}">
+                              {{ choice.tag }}
+                              <span>{{ choice.choice_label }}</span>
+                            </label>
+                          {% endfor %}
+                        </div>
+                        {{ child_form.mother_education.errors }}
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label">{{ child_form.father_education.label }}</label>
+                        <div class="radio-list">
+                          {% for choice in child_form.father_education %}
+                            <label class="radio-row" for="{{ choice.id_for_label }}">
+                              {{ choice.tag }}
+                              <span>{{ choice.choice_label }}</span>
+                            </label>
+                          {% endfor %}
+                        </div>
+                        {{ child_form.father_education.errors }}
+                      </div>
+                      <div class="mb-0">
+                        <label class="form-label">{{ child_form.caregiver_education.label }}</label>
+                        <div class="radio-list">
+                          {% for choice in child_form.caregiver_education %}
+                            <label class="radio-row" for="{{ choice.id_for_label }}">
+                              {{ choice.tag }}
+                              <span>{{ choice.choice_label }}</span>
+                            </label>
+                          {% endfor %}
+                        </div>
+                        {{ child_form.caregiver_education.errors }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -50,15 +287,28 @@
                     </div>
                   {% endif %}
 
-                  {% for field in contact_form.visible_fields %}
-                    <div class="mb-3">
-                      <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                      {{ field }}
-                      {% if field.errors %}
-                        <div class="text-danger small mt-1">{{ field.errors }}</div>
-                      {% endif %}
+                  <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                      <label class="form-label" for="{{ contact_form.email.id_for_label }}">{{ contact_form.email.label }}</label>
+                      {{ contact_form.email }}
+                      {% if contact_form.email.errors %}<div class="text-danger small mt-1">{{ contact_form.email.errors }}</div>{% endif %}
                     </div>
-                  {% endfor %}
+                    <div class="col-12 col-md-6">
+                      <label class="form-label" for="{{ contact_form.phone.id_for_label }}">{{ contact_form.phone.label }}</label>
+                      {{ contact_form.phone }}
+                      {% if contact_form.phone.errors %}<div class="text-danger small mt-1">{{ contact_form.phone.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <label class="form-label" for="{{ contact_form.max.id_for_label }}">{{ contact_form.max.label }}</label>
+                      {{ contact_form.max }}
+                      {% if contact_form.max.errors %}<div class="text-danger small mt-1">{{ contact_form.max.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <label class="form-label" for="{{ contact_form.vk.id_for_label }}">{{ contact_form.vk.label }}</label>
+                      {{ contact_form.vk }}
+                      {% if contact_form.vk.errors %}<div class="text-danger small mt-1">{{ contact_form.vk.errors }}</div>{% endif %}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -76,5 +326,27 @@
       </div>
     </div>
   </div>
+{% endblock %}
+
+{% block extra_js %}
+  <style>
+    .radio-list {
+      display: grid;
+      gap: .5rem;
+    }
+    .radio-row {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .5rem .75rem;
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: .75rem;
+      cursor: pointer;
+    }
+    .radio-row:hover {
+      border-color: rgba(47,111,237,.45);
+      background: rgba(47,111,237,.04);
+    }
+  </style>
 {% endblock %}
 

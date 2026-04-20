@@ -37,9 +37,9 @@
                   <div class="text-muted small">Возраст</div>
                   <div class="fw-semibold">
                     {% if session.child_age_months is not None %}
-                      {{ session.child_age_months|floatformat:1 }} мес.
+                      {{ session.child_age_months|floor_months }} мес.
                     {% elif session.child_profile %}
-                      {{ session.child_profile.age_months_float|floatformat:1 }} мес.
+                      {{ session.child_profile.age_months_float|floor_months }} мес.
                     {% else %}
                       —
                     {% endif %}
