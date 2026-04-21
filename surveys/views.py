@@ -22,6 +22,7 @@ from .rcdi_scoring import score_rcdi_session
 from .result_display import build_development_result_context
 from .ejs_result import build_ejs_result
 from .ejs_text import is_ezhs_legacy_change_question, is_ezhs_satisfaction_question
+from .decorators import allow_yandex_metrika_frames
 
 
 SURVEY_LABELS: dict[str, str] = {
@@ -114,6 +115,7 @@ SURVEY_INSTRUCTIONS: dict[str, dict] = {
 }
 
 
+@allow_yandex_metrika_frames
 def home(request):
     return render(request, "home.html")
 
@@ -382,6 +384,7 @@ def _ensure_questions_imported_from_legacy(slug: str) -> SurveyType | None:
     return survey_type
 
 
+@allow_yandex_metrika_frames
 def survey_start(request, slug: str):
     """Show instruction page; on POST create session and redirect to survey."""
     if _is_specialist(request.user):
@@ -480,6 +483,7 @@ def survey_start(request, slug: str):
     return render(request, "surveys/survey_start.html", context)
 
 
+@allow_yandex_metrika_frames
 def survey_page(request, slug: str):
     if _is_specialist(request.user):
         return redirect("specialist_dashboard")
@@ -803,6 +807,7 @@ def survey_page(request, slug: str):
     return render(request, "surveys/survey_page.html", context)
 
 
+@allow_yandex_metrika_frames
 def survey_result(request, slug: str, session_id: int):
     """Show result after survey completion; allow consent to send to specialist."""
     if _is_specialist(request.user):
@@ -932,6 +937,7 @@ def survey_result(request, slug: str, session_id: int):
     return render(request, "surveys/survey_result.html", context)
 
 
+@allow_yandex_metrika_frames
 def guest_specialist_submit(request, slug: str, session_id: int):
     """
     Guest-only: форма анкеты ребёнка + контакты, после успешной отправки
