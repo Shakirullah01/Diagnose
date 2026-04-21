@@ -5,9 +5,15 @@ import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "dev-only-change-me"
-DEBUG = True
-ALLOWED_HOSTS: list[str] = []
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
+
+DEBUG = os.getenv("DEBUG", "True").strip().lower() in ("1", "true", "yes", "on")
+
+_allowed = os.getenv("ALLOWED_HOSTS", "").strip()
+if _allowed:
+    ALLOWED_HOSTS: list[str] = [h.strip() for h in _allowed.split(",") if h.strip()]
+else:
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1"] if DEBUG else []
 
 
 INSTALLED_APPS = [
@@ -16,6 +22,8 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    # Must be before staticfiles so runserver does not duplicate static handling.
+    "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
     # local apps
     "accounts",
@@ -25,6 +33,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -91,6 +100,20 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Same storage in dev and prod so `collectstatic` on Render matches local behaviour.
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
+
+# In DEBUG, serve missing files from static finders (no collectstatic required for every edit).
+WHITENOISE_USE_FINDERS = DEBUG
+
+# Long cache for versioned / hashed filenames when not in DEBUG (optional; safe default).
+WHITENOISE_MAX_AGE = 60 if DEBUG else 31536000
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

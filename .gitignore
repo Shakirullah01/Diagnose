@@ -7,6 +7,7 @@ __pycache__/
 db.sqlite3
 /Diagnose_db
 /Diagnose_db.db
+/staticfiles/
 /terminals/
 .DS_Store
 *.log
