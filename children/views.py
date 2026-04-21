@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from .forms import ChildProfileForm
 from .models import ChildProfile
@@ -96,7 +97,7 @@ def child_profile_create(request):
             profile = form.save(commit=False)
             profile.parent = request.user
             profile.save()
-            return redirect("parent_dashboard")
+            return redirect(f"{reverse('parent_dashboard')}?ym_goal=child_profile_created")
     else:
         form = ChildProfileForm()
     return render(request, "children/child_profile_form.html", {"form": form, "title": "Анкета ребёнка"})

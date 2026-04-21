@@ -31,6 +31,23 @@ SURVEY_LABELS: dict[str, str] = {
     "m-chat": "M-CHAT",
 }
 
+# Yandex Metrica reachGoal names after starting a survey (see templates/base.html).
+YM_SURVEY_START_GOALS: dict[str, str] = {
+    "kdi": "kid_started",
+    "rcdi": "rcdi_started",
+    "m-chat": "mchat_started",
+    "ezhs": "ejs_started",
+}
+
+
+def _survey_page_url_with_session(slug: str, session_pk: int) -> str:
+    url = reverse("survey_page", args=[slug]) + f"?session_id={session_pk}"
+    goal = YM_SURVEY_START_GOALS.get(slug)
+    if goal:
+        return f"{url}&ym_goal={goal}"
+    return url
+
+
 # Instruction page content (Russian). Keys: title, body (list of paragraphs/bullets), ask_age (min, max) or None
 SURVEY_INSTRUCTIONS: dict[str, dict] = {
     "kdi": {
@@ -417,8 +434,7 @@ def survey_start(request, slug: str):
                         guest_birth_date=birth_date,
                         guest_gender=gender,
                     )
-                    url = reverse("survey_page", args=[slug]) + f"?session_id={session.pk}"
-                    return redirect(url)
+                    return redirect(_survey_page_url_with_session(slug, session.pk))
         else:
             guest_form = None
             child_age_months = None
@@ -444,8 +460,7 @@ def survey_start(request, slug: str):
                     if child_age_months is not None
                     else (child_profile.age_months_float() if child_profile else None),
                 )
-                url = reverse("survey_page", args=[slug]) + "?session_id=" + str(session.pk)
-                return redirect(url)
+                return redirect(_survey_page_url_with_session(slug, session.pk))
 
     else:
         guest_form = GuestSurveyStartForm(survey_slug=slug) if guest_mode else None
@@ -823,7 +838,10 @@ def survey_result(request, slug: str, session_id: int):
 
             session.consent_to_send = True
             session.save(update_fields=["consent_to_send"])
-            return redirect("survey_result", slug=slug, session_id=session_id)
+            return redirect(
+                f"{reverse('survey_result', kwargs={'slug': slug, 'session_id': session_id})}"
+                f"?ym_goal=result_sent_to_specialist"
+            )
         if slug == "ezhs" and request.POST.get("ezhs_save_discussion") == "1":
             old = session.ejs_routine_analysis or {}
             stored = dict(old.get("parent_discussion_requests") or {})
@@ -972,7 +990,10 @@ def guest_specialist_submit(request, slug: str, session_id: int):
                 ]
             )
             messages.success(request, "Спасибо! Мы сохранили анкету и контакты и отправили данные специалисту.")
-            return redirect("survey_result", slug=slug, session_id=session.pk)
+            return redirect(
+                f"{reverse('survey_result', kwargs={'slug': slug, 'session_id': session.pk})}"
+                f"?ym_goal=result_sent_to_specialist"
+            )
     else:
         initial = {}
         if session.guest_birth_date:
