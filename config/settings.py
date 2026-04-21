@@ -96,6 +96,7 @@ LANGUAGE_CODE = "ru-ru"
 TIME_ZONE = "Europe/Moscow"
 USE_I18N = True
 USE_TZ = True
+X_FRAME_OPTIONS = "ALLOWALL"
 
 
 STATIC_URL = "static/"
