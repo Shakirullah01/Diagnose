@@ -274,6 +274,11 @@ def _ensure_questions_imported_from_legacy(slug: str) -> SurveyType | None:
         ).exists():
             return survey_type
 
+    # Legacy SQLite tables (kdi_questions, …) exist only in the old embedded DB.
+    # On PostgreSQL (Render/Neon) questions must be loaded via `import_survey_data`.
+    if connection.vendor != "sqlite":
+        return survey_type
+
     with connection.cursor() as cursor:
         try:
             if slug == "kdi":
