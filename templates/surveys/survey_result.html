@@ -539,24 +539,21 @@
     .option-chip-label:hover { border-color: #2f6fed; }
     {% endif %}
   </style>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-(function () {
-  if (typeof window.ymReachGoalOnce !== 'function') return;
-  var sid = "{{ session.pk }}";
-  var slug = "{{ survey_slug|default:''|escapejs }}";
-  window.ymReachGoalOnce('result_viewed', 'ym_result_viewed_' + slug + '_' + sid);
-  {% if survey_slug == "kdi" %}
-  window.ymReachGoalOnce('kid_completed', 'ym_kid_completed_' + sid);
-  {% elif survey_slug == "rcdi" %}
-  window.ymReachGoalOnce('rcdi_completed', 'ym_rcdi_completed_' + sid);
-  {% elif survey_slug == "m-chat" %}
-  window.ymReachGoalOnce('mchat_completed', 'ym_mchat_completed_' + sid);
-  {% elif survey_slug == "ezhs" %}
-  window.ymReachGoalOnce('ejs_completed', 'ym_ejs_completed_' + sid);
-  {% endif %}
-})();
-</script>
+  <script>
+  (function () {
+    if (typeof window.ymReachGoalOnce !== 'function') return;
+    var sid = "{{ session.pk }}";
+    var slug = "{{ survey_slug|default:''|escapejs }}";
+    window.ymReachGoalOnce('result_viewed', 'ym_result_viewed_' + slug + '_' + sid);
+    {% if survey_slug == "kdi" %}
+    window.ymReachGoalOnce('kid_completed', 'ym_kid_completed_' + sid);
+    {% elif survey_slug == "rcdi" %}
+    window.ymReachGoalOnce('rcdi_completed', 'ym_rcdi_completed_' + sid);
+    {% elif survey_slug == "m-chat" %}
+    window.ymReachGoalOnce('mchat_completed', 'ym_mchat_completed_' + sid);
+    {% elif survey_slug == "ezhs" %}
+    window.ymReachGoalOnce('ejs_completed', 'ym_ejs_completed_' + sid);
+    {% endif %}
+  })();
+  </script>
 {% endblock %}
