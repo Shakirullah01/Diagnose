@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from functools import wraps
 
+from django.conf import settings
 from django.views.decorators.clickjacking import xframe_options_exempt
 
 # Yandex.Metrica CSP for click map / scroll map / Webvisor (see install-counter-csp).
@@ -25,6 +26,8 @@ _METRIKA_FRAME_ANCESTORS = (
     "https://mc.yandex.com "
     "https://mc.yandex.by "
     "https://mc.yandex.kz "
+    "https://webvisor.com "
+    "http://webvisor.com "
     "https://mc.webvisor.com "
     "https://mc.webvisor.org"
 )
@@ -54,7 +57,10 @@ def allow_yandex_metrika_frames(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         response = view_func(request, *args, **kwargs)
-        _merge_frame_ancestors_csp(response)
+        # For temporary diagnostics, allow open framing on selected public pages.
+        # X-Frame-Options is already exempted for this view by the decorator below.
+        if not getattr(settings, "METRIKA_IFRAME_TEST_MODE", False):
+            _merge_frame_ancestors_csp(response)
         return response
 
     return xframe_options_exempt(_wrapped_view)

@@ -97,6 +97,15 @@ TIME_ZONE = "Europe/Moscow"
 USE_I18N = True
 USE_TZ = True
 
+# Temporary switch for Yandex Metrica iframe-based testing.
+# True: do not add frame-ancestors CSP on exempt public pages.
+METRIKA_IFRAME_TEST_MODE = os.getenv("METRIKA_IFRAME_TEST_MODE", "True").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
+
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
