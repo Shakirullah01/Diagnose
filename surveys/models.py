@@ -20,7 +20,7 @@ class Question(models.Model):
     survey_type = models.ForeignKey(SurveyType, on_delete=models.CASCADE, related_name="questions")
     text = models.TextField()
     order = models.PositiveIntegerField(default=0)
-    category = models.CharField(max_length=10, blank=True, db_index=True, verbose_name="Категория")
+    category = models.CharField(max_length=255, blank=True, db_index=True, verbose_name="Категория")
     is_active = models.BooleanField(default=True)
     age_min_months = models.PositiveSmallIntegerField(null=True, blank=True)
     age_max_months = models.PositiveSmallIntegerField(null=True, blank=True)

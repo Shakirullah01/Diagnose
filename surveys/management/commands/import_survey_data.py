@@ -221,7 +221,7 @@ class Command(BaseCommand):
                 survey_type=st,
                 lookup={"order": order, "text": text},
                 defaults={
-                    "category": _truncate_category(topic),
+                    "category": topic,
                     "is_active": True,
                     "age_min_months": age_min,
                     "age_max_months": None,
